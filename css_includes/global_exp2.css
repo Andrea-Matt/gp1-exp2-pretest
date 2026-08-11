@@ -1,0 +1,703 @@
+/* global_exp2.css
+ *
+ * Named "global_" on purpose: tools/vendor_static.py only skips its
+ * per-file class-prefixing pass for stylesheets whose filename starts with
+ * "global_" (see its build() step, ~line 59). Any other name would get every
+ * ".foo" in this file silently rewritten to ".global_exp2-foo" (well,
+ * ".<basename>-foo") and every selector below would stop matching. Do not
+ * rename this file, and do not add a second, non-global_ stylesheet that
+ * also defines exp2-* classes.
+ *
+ * Scope of this file:
+ *   1. The dialogue stage itself (driven by exp2_dialogue.js).
+ *   2. The rating slider PCIbex's .slider() renders as a bare
+ *      <input type="range">.
+ *   3. Everything else the experiment shows: preamble text, consent
+ *      (newHtml), instructions, breaks, the progress bar, and the
+ *      exp2-duration helper span.
+ */
+
+:root {
+  --exp2-bg: #f2ede2;
+  --exp2-paper: #fbf8f2;
+  --exp2-ink: #2b2620;
+  --exp2-ink-soft: #6b6255;
+  --exp2-line: rgba(43, 38, 32, 0.14);
+  --exp2-line-strong: rgba(43, 38, 32, 0.32);
+  --exp2-red: #a8483a;
+  --exp2-red-line: #d9b9b0;
+  --exp2-blue: #3d6088;
+  --exp2-blue-line: #b9c5d6;
+  --exp2-focus: #b8842f;
+  --exp2-radius: 18px;
+  --exp2-radius-sm: 12px;
+  --exp2-shadow: 0 1px 2px rgba(30, 24, 18, 0.05), 0 10px 26px -14px rgba(30, 24, 18, 0.28);
+  --exp2-font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --exp2-font-serif: Georgia, "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--exp2-bg);
+}
+
+/* `html body` rather than plain `body`, deliberately.
+ *
+ * The runtime ships its own css_includes/global_main.css with
+ * `body { background-color: white; margin-top: 5em }`, and the build loads
+ * stylesheets in os.listdir order — "global_exp2" sorts before "global_main",
+ * so at equal specificity the runtime's white wins. Because `html` here does
+ * carry a background, the body's white then stops propagating to the page
+ * canvas and paints only the body box: cream shows through wherever the box
+ * does not reach (the 5em top margin, and the right/bottom edges), which reads
+ * as an off-white rectangle with stripes around it.
+ *
+ * One extra element in the selector settles it without `!important`, which
+ * would have to be repeated on every property the runtime also sets. */
+html body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--exp2-bg);
+  color: var(--exp2-ink);
+  font-family: var(--exp2-font-ui);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---------------------------------------------------------------------- *
+ * Progress bar (PennController's own bare markup: a bar-container/bar pair
+ * plus a progress-text paragraph — no PennController- prefix on these).
+ * ---------------------------------------------------------------------- */
+
+div.bar-container {
+  width: min(320px, 70vw);
+  height: 6px;
+  margin: 1.5rem auto 0.25rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--exp2-line);
+  overflow: hidden;
+}
+
+div.bar {
+  height: 100%;
+  background: var(--exp2-red);
+  transition: width 200ms ease;
+}
+
+p.progress-text {
+  margin: 0 0 1.5rem;
+  text-align: center;
+  font-size: 0.78rem;
+  font-style: normal;
+  letter-spacing: 0.03em;
+  color: var(--exp2-ink-soft);
+}
+
+/* ---------------------------------------------------------------------- *
+ * Consent / instructions / break screens: any newHtml(...) document.
+ * ---------------------------------------------------------------------- */
+
+.PennController-Html-container {
+  max-width: 640px;
+  margin: 2rem auto;
+  padding: 2rem 2.25rem 2.25rem;
+  background: var(--exp2-paper);
+  border: 1px solid var(--exp2-line);
+  border-radius: var(--exp2-radius);
+  box-shadow: var(--exp2-shadow);
+}
+
+.PennController-Html h1 {
+  margin: 0 0 0.85rem;
+  font-size: 1.5rem;
+  line-height: 1.3;
+  color: var(--exp2-ink);
+}
+
+.PennController-Html h2 {
+  margin: 1.5rem 0 0.5rem;
+  font-size: 1.05rem;
+  color: var(--exp2-ink);
+}
+
+.PennController-Html p,
+.PennController-Html li {
+  margin: 0 0 0.9rem;
+  color: var(--exp2-ink-soft);
+}
+
+.PennController-Html a {
+  color: var(--exp2-blue);
+}
+
+.PennController-Html input[type="checkbox"] {
+  width: 1.05em;
+  height: 1.05em;
+  margin-right: 0.45em;
+  vertical-align: -0.2em;
+  accent-color: var(--exp2-red);
+}
+
+.PennController-Html input[type="text"],
+.PennController-Html textarea {
+  font: inherit;
+  padding: 0.4em 0.6em;
+  border: 1px solid var(--exp2-line-strong);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--exp2-ink);
+}
+
+/* ---------------------------------------------------------------------- *
+ * Free-standing text: preamble / context sentences printed with newText.
+ * `.PennController-context` is a convention, not an engine class — if the
+ * script names the scenario-setting element "context" it gets a slightly
+ * quieter treatment; every other Text still gets the base look either way.
+ * ---------------------------------------------------------------------- */
+
+.PennController-Text-container {
+  max-width: 640px;
+  margin: 0 auto 1rem;
+  padding: 0 1rem;
+  text-align: center;
+}
+
+.PennController-Text {
+  font-size: 1rem;
+  color: var(--exp2-ink);
+  line-height: 1.6;
+}
+
+.PennController-context {
+  display: inline-block;
+  font-style: italic;
+  color: var(--exp2-ink-soft);
+}
+
+/* ---------------------------------------------------------------------- *
+ * Buttons everywhere (consent submit, instructions, breaks, continue).
+ * ---------------------------------------------------------------------- */
+
+.PennController-Button-container {
+  margin: 1.1rem auto;
+  text-align: center;
+}
+
+.PennController-Button {
+  display: inline-block;
+  font: inherit;
+  font-size: 0.95rem;
+  padding: 0.65em 1.7em;
+  margin: 0.25em;
+  border: 1px solid var(--exp2-ink);
+  border-radius: 999px;
+  background: var(--exp2-ink);
+  color: var(--exp2-paper);
+  cursor: pointer;
+  transition: transform 150ms ease, background 150ms ease, opacity 150ms ease;
+}
+
+.PennController-Button:hover {
+  background: #453b30;
+}
+
+.PennController-Button:active {
+  transform: translateY(1px);
+}
+
+.PennController-Button:focus-visible {
+  outline: 2px solid var(--exp2-focus);
+  outline-offset: 2px;
+}
+
+.PennController-Button.PennController-disabled,
+.PennController-Button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------------------- *
+ * The one-line-edit study-length helper. Exp2Dialogue.fillDuration(split)
+ * copies the matching data attribute into the span's text at runtime.
+ * ---------------------------------------------------------------------- */
+
+.exp2-duration {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--exp2-ink);
+}
+
+/* ------------------------------------------------------------------------
+ * Form validation message (the consent checkbox).
+ *
+ * PennController writes into `label.error[for=__ALL_FIELDS__]` and adds
+ * .Form-error-text when it does; the element exists but is empty until then,
+ * so `:empty` is what keeps it out of the layout beforehand. Without such a
+ * label in the HTML the runtime falls back to a native alert() — see the
+ * comment beside it in chunk_includes/consent_v2.html.
+ *
+ * It stays put once shown: a validation message the participant can miss by
+ * blinking is not a validation message.
+ * ---------------------------------------------------------------------- */
+
+label.error[for="__ALL_FIELDS__"] {
+  display: block;
+  margin: 1.2em 0 0;
+  padding: 0.75em 1em;
+  border: 1px solid var(--exp2-red);
+  border-left: 4px solid var(--exp2-red);
+  border-radius: 6px;
+  background: #fdf1ef;
+  color: #8a2a1c;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+label.error[for="__ALL_FIELDS__"]:empty {
+  display: none;
+}
+
+/* ------------------------------------------------------------------------
+ * The dialogue stage
+ *
+ * Structure built by Exp2Dialogue.mount():
+ *   .exp2-stage.exp2-<state>
+ *     .exp2-scene
+ *       .exp2-speaker--left
+ *         .exp2-bubble-wrap > .exp2-bubble--left (+ .exp2-thinking)
+ *         .exp2-portrait--left
+ *       .exp2-speaker--right  (mirrors the above)
+ *     .exp2-replay
+ * ---------------------------------------------------------------------- */
+
+.exp2-stage {
+  /* `!important` because PennController puts an inline `display: inherit` on
+   * every element container, and the stage is mounted onto one — so the stage
+   * would otherwise take its parent's layout. Inheriting a row layout puts the
+   * play button beside the devils, halfway up, instead of centred beneath
+   * them; block display lets .exp2-replay's `margin: auto` centre it under the
+   * pair. An inline style can only be overridden with !important. */
+  display: block !important;
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  margin: 1.5rem auto;
+  padding: 2rem 1.75rem 1.5rem;
+  background: var(--exp2-paper);
+  border: 1px solid var(--exp2-line);
+  border-radius: var(--exp2-radius);
+  box-shadow: var(--exp2-shadow);
+  font-family: var(--exp2-font-ui);
+  color: var(--exp2-ink);
+}
+
+.exp2-scene {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.exp2-speaker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 46%;
+  min-width: 0;
+}
+
+.exp2-bubble-wrap {
+  position: relative;
+  width: 100%;
+  min-height: 4.4em;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  margin-bottom: 0.85rem;
+}
+
+.exp2-bubble {
+  position: relative;
+  max-width: 100%;
+  padding: 0.85em 1.05em;
+  border-radius: var(--exp2-radius-sm);
+  background: #fff;
+  border: 1px solid var(--exp2-line);
+  font-family: var(--exp2-font-serif);
+  font-size: clamp(0.95rem, 1.5vw, 1.125rem);
+  line-height: 1.5;
+  color: var(--exp2-ink);
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px) scale(0.98);
+  transition:
+    opacity calc(220ms * var(--exp2-anim-scale, 1)) ease,
+    transform calc(220ms * var(--exp2-anim-scale, 1)) ease,
+    visibility 0s linear calc(220ms * var(--exp2-anim-scale, 1));
+}
+
+.exp2-bubble--shown {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+  transition:
+    opacity calc(220ms * var(--exp2-anim-scale, 1)) ease,
+    transform calc(220ms * var(--exp2-anim-scale, 1)) ease;
+}
+
+.exp2-bubble::after {
+  content: "";
+  position: absolute;
+  bottom: -7px;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  transform: rotate(45deg);
+}
+
+.exp2-bubble--left {
+  border-color: var(--exp2-red-line);
+}
+.exp2-bubble--left::after {
+  left: 26px;
+  border-right: 1px solid var(--exp2-red-line);
+  border-bottom: 1px solid var(--exp2-red-line);
+}
+
+.exp2-bubble--right {
+  border-color: var(--exp2-blue-line);
+}
+.exp2-bubble--right::after {
+  right: 26px;
+  border-right: 1px solid var(--exp2-blue-line);
+  border-bottom: 1px solid var(--exp2-blue-line);
+}
+
+.exp2-word {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(3px);
+  transition:
+    opacity calc(160ms * var(--exp2-anim-scale, 1)) ease,
+    transform calc(160ms * var(--exp2-anim-scale, 1)) ease;
+}
+
+.exp2-word--shown {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.exp2-thinking {
+  position: absolute;
+  bottom: 0.5em;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity calc(160ms * var(--exp2-anim-scale, 1)) ease;
+}
+
+.exp2-thinking--active {
+  opacity: 1;
+}
+
+.exp2-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--exp2-ink-soft);
+  opacity: 0.4;
+  animation: exp2-bounce calc(1.1s * var(--exp2-anim-scale, 1)) ease-in-out infinite;
+}
+.exp2-dot:nth-child(2) {
+  animation-delay: calc(0.15s * var(--exp2-anim-scale, 1));
+}
+.exp2-dot:nth-child(3) {
+  animation-delay: calc(0.3s * var(--exp2-anim-scale, 1));
+}
+
+@keyframes exp2-bounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.35; }
+  40% { transform: translateY(-4px); opacity: 0.9; }
+}
+
+.exp2-portrait {
+  width: clamp(96px, 16vw, 148px);
+  height: clamp(96px, 16vw, 148px);
+  background-repeat: no-repeat;
+  background-position: bottom center;
+  background-size: contain;
+  transform-origin: bottom center;
+  filter: saturate(0.65) brightness(1.04) opacity(0.5);
+  transition:
+    transform calc(220ms * var(--exp2-anim-scale, 1)) ease,
+    filter calc(220ms * var(--exp2-anim-scale, 1)) ease;
+}
+
+.exp2-portrait--left {
+  background-image: url("../leftEv.png");
+}
+.exp2-portrait--right {
+  background-image: url("../rightEv.png");
+}
+
+.exp2-speaker--active .exp2-portrait {
+  filter: saturate(1.05) opacity(1) drop-shadow(0 12px 18px rgba(30, 24, 18, 0.25));
+  transform: scale(1.1);
+}
+
+.exp2-replay {
+  display: block;
+  margin: 1.1rem auto 0;
+  padding: 0.5em 1.4em;
+  border: 1px solid var(--exp2-line-strong);
+  border-radius: 999px;
+  background: var(--exp2-paper);
+  color: var(--exp2-ink);
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, transform 150ms ease;
+}
+.exp2-replay:hover {
+  border-color: var(--exp2-ink-soft);
+}
+.exp2-replay:active {
+  transform: translateY(1px);
+}
+.exp2-replay:focus-visible {
+  outline: 2px solid var(--exp2-focus);
+  outline-offset: 2px;
+}
+.exp2-replay[hidden] {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .exp2-bubble,
+  .exp2-word,
+  .exp2-portrait,
+  .exp2-thinking,
+  .exp2-dot,
+  .exp2-replay {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+@media (max-width: 700px) {
+  .exp2-stage {
+    padding: 1.25rem 1rem 1.1rem;
+    margin: 1rem auto;
+    border-radius: 14px;
+  }
+  .exp2-scene {
+    gap: 0.6rem;
+  }
+  .exp2-portrait {
+    width: clamp(72px, 22vw, 108px);
+    height: clamp(72px, 22vw, 108px);
+  }
+  .exp2-bubble {
+    font-size: 0.92rem;
+    padding: 0.7em 0.85em;
+  }
+  .PennController-Html-container {
+    margin: 1rem;
+    padding: 1.5rem 1.25rem 1.75rem;
+  }
+  .PennController-Text-container {
+    padding: 0 0.5rem;
+  }
+}
+
+/* ------------------------------------------------------------------------
+ * The rating slider.
+ *
+ * .slider() turns a Scale into a bare <input type="range"> with no class of
+ * its own; the container around it always carries
+ * .PennController-elementContainer.PennController-Scale-container
+ * .PennController-<name>-container, with the two anchor Texts as
+ * .PennController-before / .PennController-after siblings of the slider's
+ * own .PennController-Scale div. :has() lets us style specifically the
+ * slider variant of Scale without touching button/radio scales elsewhere.
+ * ---------------------------------------------------------------------- */
+
+.PennController-elementContainer.PennController-Scale-container:has(input[type="range"]) {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 0.5rem;
+  row-gap: 0.6rem;
+  align-items: center;
+  width: 100%;
+  max-width: 520px;
+  margin: 1.85rem auto 0.5rem;
+  padding: 0 0.5rem;
+}
+
+.PennController-Scale-container:has(input[type="range"]) > .PennController-Scale {
+  grid-row: 1;
+  grid-column: 1 / -1;
+  width: 100%;
+  max-width: none !important;
+}
+
+.PennController-Scale-container:has(input[type="range"]) > .PennController-before {
+  grid-row: 2;
+  grid-column: 1;
+  justify-self: start;
+}
+
+.PennController-Scale-container:has(input[type="range"]) > .PennController-after {
+  grid-row: 2;
+  grid-column: 2;
+  justify-self: end;
+}
+
+.PennController-Scale-container:has(input[type="range"]) .PennController-Text {
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: var(--exp2-ink-soft);
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 1.75rem;
+  background: transparent;
+  margin: 0;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--exp2-line-strong);
+}
+input[type="range"]::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--exp2-line-strong);
+}
+input[type="range"]::-moz-range-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--exp2-line-strong);
+}
+
+/* The thumb is invisible until Exp2Dialogue.watchSlider() adds
+ * .exp2-touched on the first `input` event — born dead-centre, a visible
+ * thumb there would silently anchor the response before the participant has
+ * made one. */
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: var(--exp2-paper);
+  border: 2px solid var(--exp2-ink);
+  box-shadow: 0 1px 3px rgba(30, 24, 18, 0.25);
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--exp2-paper);
+  border: 2px solid var(--exp2-ink);
+  box-shadow: 0 1px 3px rgba(30, 24, 18, 0.25);
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+
+input[type="range"].exp2-touched::-webkit-slider-thumb {
+  opacity: 1;
+  transform: scale(1);
+}
+input[type="range"].exp2-touched::-moz-range-thumb {
+  opacity: 1;
+  transform: scale(1);
+}
+
+input[type="range"]:focus-visible {
+  outline: 2px solid var(--exp2-focus);
+  outline-offset: 6px;
+  border-radius: 999px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  input[type="range"]::-webkit-slider-thumb,
+  input[type="range"]::-moz-range-thumb {
+    transition: none !important;
+  }
+}
+
+/* ------------------------------------------------------------------------
+ * Gate: anything printed after the dialogue stage (the rating slider, the
+ * continue button, whatever else) stays hidden until the stage reaches
+ * exp2-done. display:none rather than opacity, so a hidden-but-clickable
+ * button can never let a participant skip the recording.
+ *
+ * This is a pure CSS sibling-combinator rule and depends on the stage being
+ * printed as a top-level sibling of those elements in the trial (i.e. not
+ * nested one level down inside its own wrapping PennController element) —
+ * see the note about this in exp2_dialogue.js's mount() doc comment.
+ * ---------------------------------------------------------------------- */
+
+.exp2-stage ~ .PennController-elementContainer {
+  display: none !important;
+}
+
+.exp2-stage.exp2-done ~ .PennController-elementContainer {
+  display: inherit !important;
+}
+
+/* The slider's own unconditional layout rule further up this file
+ * (`.PennController-elementContainer.PennController-Scale-container:has(...)
+ * { display: grid !important; }`) is *more specific* than the plain
+ * `.exp2-stage ~ .PennController-elementContainer` hide-rule above (an extra
+ * class plus the :has() argument's own specificity), so without this pair of
+ * overrides the slider would stay visible throughout — never actually
+ * hidden. These two re-fight that battle at higher specificity, once with
+ * the sibling-gate qualifier so only trials with a stage are affected. */
+.exp2-stage ~ .PennController-elementContainer.PennController-Scale-container:has(input[type="range"]) {
+  display: none !important;
+}
+.exp2-stage.exp2-done ~ .PennController-elementContainer.PennController-Scale-container:has(input[type="range"]) {
+  display: grid !important;
+}
+
+/* The continue button needs a second, stricter gate than the rest of the
+ * trial: exp2-done alone (dialogue finished playing) is not enough, because
+ * that would let a participant advance without ever having touched the
+ * slider (its value would silently submit at the born-dead-centre default).
+ * main.js adds `exp2-answered` to the same container that carries
+ * exp2-stage/exp2-done, on the slider's first `input` event (see
+ * Exp2Dialogue.watchSlider() in exp2_dialogue.js). Same specificity fight as
+ * the slider block above: the generic exp2-done rule further up this file
+ * already reveals every sibling container once done, so the button has to be
+ * hidden back down at higher specificity and then re-revealed at higher
+ * specificity still once exp2-answered is also present. */
+.exp2-stage.exp2-done ~ .PennController-elementContainer.PennController-Button-container {
+  display: none !important;
+}
+.exp2-stage.exp2-done.exp2-answered ~ .PennController-elementContainer.PennController-Button-container {
+  display: inherit !important;
+}

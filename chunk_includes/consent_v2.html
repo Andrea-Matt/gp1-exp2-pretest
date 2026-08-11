@@ -1,0 +1,77 @@
+<h1>Modulo di consenso</h1>
+
+<p>Ti invitiamo a partecipare ad uno studio intitolato <i>Una risposta non vale l'altra</i>. Lo studio è condotto
+    da Andrea Matticchio della University of Massachusetts Amherst. Risulti idonea/o alla partecipazione perché la tua
+    lingua madre è l'italiano e hai almeno diciotto anni.</p>
+
+<h2>Obiettivo della ricerca</h2>
+<p>Lo scopo di questo studio è comprendere meglio alcuni meccanismi del linguaggio umano, in particolare come i parlanti
+    giudicano la naturalezza di alcune frasi in diversi contesti comunicativi.</p>
+
+<h2>Chi può partecipare a questo studio</h2>
+<p>Possono partecipare solo persone di età pari o superiore a diciotto anni la cui lingua madre è l'italiano. Se non
+    soddisfi questi criteri, ti chiediamo di non proseguire.</p>
+
+<h2>Cosa ti verrà chiesto di fare e quanto tempo richiederà</h2>
+<p>Se accetti di partecipare, ti verrà chiesto di completare un esperimento online in cui esprimerai giudizi sulla
+    naturalezza di alcune frasi usate come risposte a delle domande.
+    <!-- DURATION: the only place the stated length of the study is set. -->
+    L'esperimento richiederà circa
+    <span class="exp2-duration" data-whole="__" data-split="__"></span>
+    minuti per essere completato. Verranno anche raccolti alcuni dati demografici (età, genere, ecc.).</p>
+
+<h2>Ci sono benefici personali?</h2>
+<p>Non otterrai benefici diretti dalla partecipazione a quest'esperimento. Tuttavia, speriamo che il tuo contributo
+    possa aiutare ad avanzare la conoscenza scientifica del linguaggio umano.</p>
+
+<h2>Ci sono rischi nel partecipare?</h2>
+<p>Riteniamo che i rischi siano minimi. L'unico rischio riguarda una possibile violazione della riservatezza, che sarà
+    minimizzato tramite le misure descritte sotto. Potresti trovare ripetitivo o stancante il compito, ma puoi prenderti
+    una pausa o ritirarti in qualsiasi momento.</p>
+
+<h2>Protezione delle informazioni personali</h2>
+<p>I dati sperimentali e demografici che raccoglieremo sono completamente anonimi. Nessuno dei dati raccolti dopo il
+    messaggio “L'esperimento è terminato” sarà associato al tuo nome o ai dati forniti per ricevere il compenso. I dati
+    saranno salvati in modo sicuro, e saranno accessibili solo al personale di ricerca. Dati incompleti od ottenuti da
+    partecipanti non idonei non saranno conservati. Se cambi idea prima della fine dell'esperimento, puoi
+    semplicemente chiudere questa finestra e i dati non verranno salvati.</p>
+<p>I dati personali necessari per rilasciare il compenso, raccolti tramite un modulo a parte dopo la schermata "Fine
+    dell'esperimento", verranno salvati in modo sicuro e solo per il tempo necessario ad effettuare il pagamento. Questi
+    dati verranno distrutti una volta che avrai ricevuto il compenso.</p>
+
+<h2>Compenso</h2>
+<p>Se completerai l'esperimento, riceverai un compenso di 8,50 euro per la partecipazione. Per
+    riceverlo, dovrai fornire un indirizzo email (per PayPal) o un numero di telefono (per Satispay) tramite un modulo
+    esterno alla fine dello studio. I dati per il pagamento non verranno associati ai tuoi dati sperimentali.</p>
+
+<h2>Cosa succede se cambi idea</h2>
+<p>La partecipazione è volontaria. Se accetti di partecipare ma poi cambi idea, puoi interrompere l'esperimento in
+    qualsiasi momento semplicemente chiudendo questa finestra. In tal caso, nessun dato sperimentale o demografico verrà
+    salvato. Non ci saranno conseguenze negative di alcun tipo.</p>
+
+<h2>Chi contattare in caso di domande</h2>
+<p>Per domande sul progetto o su eventuali problemi legati alla ricerca, puoi contattare Andrea Matticchio al numero
+    +39-340-1498626 (solo Whatsapp) o via email all'indirizzo <a
+        href="mailto:amatticchio@umass.edu">amatticchio@umass.edu</a>. Se hai domande sui tuoi diritti come
+    partecipante, puoi contattare l'Ufficio per la Tutela dei Soggetti Umani della University of Massachusetts Amherst
+    al numero +1-413-5453428 o via email all'indirizzo <a
+        href="mailto:humansubjects@ora.umass.edu">humansubjects@ora.umass.edu</a>.</p>
+
+<p>Facendo clic sulla casella qui sotto, dichiari di avere almeno diciotto anni, di aver letto questo modulo e di
+    accettare di partecipare allo studio.</p>
+
+<p><input type="checkbox" class="obligatory"> Do il mio consenso alla partecipazione all'esperimento e alla raccolta dei
+    miei giudizi linguistici e dei miei dati demografici. Dichiaro di avere almeno diciotto anni e di aver ricevuto
+    informazioni sufficienti per decidere di proseguire.</p>
+
+<!-- Where the "you must consent before continuing" warning is displayed. Not
+     part of the IRB text: it starts empty and PennController fills it in with
+     the message set by .checkboxWarning() in data_includes/main.js.
+
+     It has to exist. PennController's warning helper looks for exactly
+     `label.error[for=__ALL_FIELDS__]` and, if it does not find one, falls back
+     to a native alert() — which is dismissed automatically under browser
+     automation (so it flashes past in a --manual run) and is a jarring way to
+     handle consent even in a real participant's browser. With this element the
+     message appears inline, styled, and stays until the box is ticked. -->
+<label class="error" for="__ALL_FIELDS__" role="alert" aria-live="assertive"></label>
