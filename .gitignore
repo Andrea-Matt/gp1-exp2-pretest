@@ -1,0 +1,4 @@
+# iCloud conflict copies. Never part of a deploy.
+* 2.*
+*.icloud
+.DS_Store
