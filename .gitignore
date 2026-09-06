@@ -1,4 +1,9 @@
 # iCloud conflict copies. Never part of a deploy.
-* 2.*
+# Not just " 2.": iCloud numbers them upwards, and a bare name
+# (".gitignore 2") has no extension to match on.
+* [0-9].*
+* [0-9][0-9].*
+* [0-9]
+* [0-9][0-9]
 *.icloud
 .DS_Store
