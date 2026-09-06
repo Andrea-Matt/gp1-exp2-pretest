@@ -312,11 +312,11 @@ newTrial("preload",
         if (!AUDIO_ZIP) return;
         const el = document.querySelector(".PennController-zip-status");
         const say = (t) => { if (el) el.textContent = t; };
-        say("Caricamento delle registrazioni…");
+        say("Caricamento in corso…");
         return Exp2Dialogue.loadAudioZip(AUDIO_ZIP, (frac) => {
             say(frac === null
-                ? "Caricamento delle registrazioni…"
-                : `Caricamento delle registrazioni… ${Math.round(frac * 100)}%`);
+                ? "Caricamento in corso…"
+                : `Caricamento in corso… ${Math.round(frac * 100)}%`);
         }).then(() => {
             say("");
         }, (err) => {

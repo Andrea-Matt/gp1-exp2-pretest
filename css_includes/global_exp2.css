@@ -438,8 +438,13 @@ html p.progress-text {
  * copies the matching data attribute into the span's text at runtime.
  * ---------------------------------------------------------------------- */
 
+/* `font-weight: inherit` because the whole phrase is emphasised, not the
+ * number alone: consent_v2.html wraps "circa <span> minuti" in a <strong>, and
+ * a fixed weight here would have made the one word inside it lighter than the
+ * two around it. Inheriting keeps the three at whatever `bolder` resolves to,
+ * whatever the surrounding paragraph's weight turns out to be. */
 .exp2-duration {
-  font-weight: 600;
+  font-weight: inherit;
   font-variant-numeric: tabular-nums;
   color: var(--exp2-ink);
 }
@@ -698,11 +703,19 @@ label.error[for="__ALL_FIELDS__"]:empty {
     filter calc(220ms * var(--exp2-anim-scale, 1)) ease;
 }
 
+/* The two URLs come from JS, and deliberately: a relative URL in here is
+ * resolved against THIS FILE, and the farm serves the stylesheet one directory
+ * deeper than the local static build does, so no single relative URL is right
+ * in both. `url("../leftEv.png")` was right locally and asked the farm for
+ * /r/leftEv.png, which answers 200 with the farm's own HTML — two blank
+ * silhouettes, no error, and nothing local able to reproduce it.
+ * Exp2Dialogue's stampAssetUrls() sets these against the page instead, the way
+ * PennController resolves its own newImage(). Do not put a url() back here. */
 .exp2-portrait--left {
-  background-image: url("../leftEv.png");
+  background-image: var(--exp2-portrait-left);
 }
 .exp2-portrait--right {
-  background-image: url("../rightEv.png");
+  background-image: var(--exp2-portrait-right);
 }
 
 .exp2-speaker--active .exp2-portrait {

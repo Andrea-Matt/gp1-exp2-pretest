@@ -62,6 +62,53 @@
   // is a recording that has stopped.
   var STALL_MS = 5000;
 
+  // How much shorter than the recording a turn has to stop before the stage
+  // will pause the audio itself. See truncatesRecording() in the Stage.
+  var END_GRACE_MS = 250;
+
+  // How close to the end the end timer stops being re-armed, in content ms.
+  // See refreshEndTimer().
+  var END_REARM_FLOOR_MS = 2000;
+
+  // ------------------------------------------------------------------
+  // Where a chunk_includes file actually lives, in every environment.
+  // ------------------------------------------------------------------
+  // A relative URL inside a stylesheet is resolved against the STYLESHEET,
+  // and the two environments do not put the stylesheet in the same place:
+  //
+  //   local static build   page /          stylesheet /css_includes/global_exp2.css
+  //   farm                 page /r/<id>/   stylesheet /r/<id>/css_includes
+  //
+  // The images sit beside the page in both -- /leftEv.png and
+  // /r/<id>/leftEv.png -- so `url("../leftEv.png")` is right locally and one
+  // directory too high on the farm, where it asked for /r/leftEv.png, got the
+  // farm's own HTML page back with a 200, and painted nothing. Two blank
+  // silhouettes and no error anywhere; no local run can show it, because no
+  // local run puts the stylesheet one level down. There is no single relative
+  // URL that is right in both.
+  //
+  // So the URL is resolved here, against the PAGE. That is exactly what
+  // PennController does with its own newImage("leftEv", "leftEv.png") -- it
+  // assigns the bare name to img.src and lets the document base resolve it --
+  // which is why the preloaded copies were reaching the right place all along
+  // while the stylesheet's copies were not.
+  function assetUrl(name) {
+    try { return new global.URL(name, document.baseURI).href; }
+    catch (e) { return name; }
+  }
+
+  // Hands the stylesheet the two portrait URLs it cannot write itself, as
+  // custom properties on the root element. Called from mount(), never at load:
+  // this file promises no side effects at load time (see the header), and the
+  // only elements that carry those classes are the ones mount() builds, so
+  // there is nothing to paint before it runs. Idempotent.
+  function stampAssetUrls() {
+    if (typeof document === 'undefined' || !document.documentElement) return;
+    var s = document.documentElement.style;
+    s.setProperty('--exp2-portrait-left', 'url("' + assetUrl('leftEv.png') + '")');
+    s.setProperty('--exp2-portrait-right', 'url("' + assetUrl('rightEv.png') + '")');
+  }
+
   // The unpacked audio archive: filename -> blob: URL, or null until one is
   // loaded. `zipPromise` makes loadAudioZip idempotent -- the preload screen
   // and a defensive call from a trial must not fetch 21 MB twice.
@@ -575,6 +622,17 @@
     // the run exists to withhold while nothing on screen showed it. So the
     // stop is a timer, off the frame loop, like everything else here that must
     // happen whether or not the page is being drawn.
+    //
+    // It is armed from the AUDIO's position, never from the moment playback
+    // was asked for. Those are not the same instant: audio.play() returns
+    // before the element makes any sound, and deployed -- where the source is
+    // a blob out of the archive that has never been decoded, on a
+    // participant's own machine -- the gap runs to a few hundred ms. Armed at
+    // the request, the timer therefore fired that much before the recording's
+    // own end and audio.pause() took the final word off the second devil,
+    // every trial. Nothing local could show it: an mp3 served from the page
+    // root starts effectively instantly, so the gap was ~0 and the timer and
+    // `ended` landed together. Hence `playing` and `timeupdate` below.
     function armEndTimer(speed) {
       clearEndTimer();
       var remaining = totalMs - (audio.currentTime * 1000);
@@ -582,10 +640,45 @@
       endTimer = global.setTimeout(function () {
         endTimer = null;
         if (settled) return;
-        try { audio.pause(); } catch (e) { /* ignore */ }
+        if (truncatesRecording()) {
+          try { audio.pause(); } catch (e) { /* ignore */ }
+        }
         scheduleClear();
       }, remaining / (speed || 1));
     }
+
+    // Does this turn stop before the recording does?
+    //
+    // On an ordinary item it does not: total_ms is a_end_ms is the mp3's own
+    // duration, to the millisecond, for every row in both item tables. There
+    // is nothing to cut, `ended` is what finishes the trial, and pausing here
+    // can only ever shave the last syllable if the timer is a hair early. So
+    // on those the timer clears the screen and lets the audio run itself out.
+    // `?cont=off` is the case the pause exists for, and there the gap is over
+    // a second. Read at the moment the timer fires, when metadata has
+    // certainly loaded; an unknown duration is treated as "yes", which is the
+    // safe answer for the variant that must withhold something.
+    function truncatesRecording() {
+      var d = audio.duration;
+      if (!isFinite(d) || d <= 0) return true;
+      return totalMs < d * 1000 - END_GRACE_MS;
+    }
+
+    // Re-arms the end timer from wherever playback has actually got to, so a
+    // late start or a hiccup cannot make the stop drift -- but stops doing so
+    // once the end is close, leaving the last stretch as a single pending
+    // timeout rather than the tail of a chain of them. Chrome throttles
+    // chained timers hard in a hidden tab, and the hidden tab is precisely the
+    // case this timer exists for.
+    function refreshEndTimer() {
+      if (settled || prerollTimer || audio.paused) return;
+      var remaining = totalMs - (audio.currentTime * 1000);
+      if (endTimer && remaining <= END_REARM_FLOOR_MS) return;
+      armEndTimer(currentSpeed());
+    }
+
+    audio.addEventListener('playing', refreshEndTimer);
+    audio.addEventListener('timeupdate', refreshEndTimer);
 
     function clearEndTimer() {
       if (endTimer) global.clearTimeout(endTimer);
@@ -614,7 +707,8 @@
       startWatchdog();
       var speed = currentSpeed();
       try { audio.playbackRate = speed; } catch (e) { /* ignore */ }
-      armEndTimer(speed);
+      // No armEndTimer() here: the timer is armed by the `playing` event, when
+      // the element is actually making sound. See armEndTimer().
       startWallTime = global.performance ? global.performance.now() : Date.now();
       var p = audio.play();
       if (p && typeof p.catch === 'function') {
@@ -718,8 +812,14 @@
   var Exp2Dialogue = {
     mount: function (container, options) {
       if (!container) throw new Error('Exp2Dialogue.mount: container is required');
+      stampAssetUrls();
       return new Stage(container, options || {});
     },
+
+    // Where a chunk_includes file is served, resolved against the page the way
+    // PennController resolves its own. The stylesheet cannot work this out for
+    // itself -- see the comment on assetUrl().
+    assetUrl: assetUrl,
 
     // Adds `touchedClass` (default "exp2-touched") to `input` the first time
     // the participant interacts with it, and returns a handle for reading
