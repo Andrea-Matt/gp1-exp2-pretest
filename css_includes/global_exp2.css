@@ -31,6 +31,14 @@
   --exp2-focus: #b8842f;
   --exp2-radius: 18px;
   --exp2-radius-sm: 12px;
+  /* Everything outside the experiment's own column. Deliberately nothing like
+   * the cream inside it -- see the `html` rule below for why that matters. */
+  --exp2-outside: #201c17;
+  /* Half-width of the experiment's column. The runtime lays its content out in
+   * a 640px-wide absolutely-positioned block, so this only has to be a little
+   * wider than that to read as a margin around it rather than a stripe behind
+   * it. */
+  --exp2-sheet-half: 380px;
   --exp2-shadow: 0 1px 2px rgba(30, 24, 18, 0.05), 0 10px 26px -14px rgba(30, 24, 18, 0.28);
   --exp2-font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --exp2-font-serif: Georgia, "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", serif;
@@ -42,8 +50,120 @@
   box-sizing: border-box;
 }
 
+/* The page outside the experiment.
+ *
+ * The problem this solves: the experiment's content is a centred column a few
+ * hundred pixels narrower than the window, and the trial is usually taller
+ * than the viewport. When everything -- inside the column and outside it --
+ * was the same cream, a participant looking at the bottom of the window saw
+ * an unbroken field of background colour and read it as the end of the page.
+ * It is not; the rating slider and the continue button are below it. Nothing
+ * on screen distinguished "the experiment stops here" from "there is more,
+ * scroll".
+ *
+ * So the area outside the column is now explicitly not-the-experiment: dark,
+ * with faint diagonal hatching, and the cream is a sheet of a definite width
+ * running the full height of the window. Its *bottom* edge says nothing --
+ * the column always reaches the bottom of the viewport -- so the "there is
+ * more below" cue (.exp2-scroll-cue, installed by exp2_dialogue.js) is what
+ * carries that, and is the only thing that does.
+ *
+ * The hatch is very low-contrast on purpose -- it should read as inert
+ * material at a glance, not as content competing with the experiment. */
+
+/* The canvas: the marked-off area, and nothing else.
+ *
+ * This covers the whole scrollable page plus the overscroll gutters and the
+ * scrollbar's own track, which is exactly what it is for -- anywhere the
+ * viewport-anchored column below cannot reach still has to look like the
+ * outside of the experiment rather than bare colour.
+ *
+ * `scrollbar-gutter: stable both-edges` reserves the same strip on both sides
+ * whether or not this trial happens to scroll, so the column is centred in
+ * the physical window and the content never shifts sideways as trials become
+ * scrollable and unscrollable. With the track left transparent, the hatch
+ * shows through it and the two flanks read alike. (No effect where the
+ * platform draws overlay scrollbars, which reserve nothing to begin with.) */
 html {
-  background: var(--exp2-bg);
+  scrollbar-gutter: stable both-edges;
+  /* No rubber-banding. The column is anchored to the viewport and the trial's
+   * content is not, so an elastic overscroll slides one against the other:
+   * scroll hard at either end and the devils, the text and the progress bar
+   * travel while the sheet they are on stays put, which is a lot of movement
+   * for something that is not going anywhere. There is also nothing for the
+   * gesture to do here — this is one page with nothing above or below it. */
+  overscroll-behavior: none;
+  background-color: var(--exp2-outside);
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 250, 240, 0.06) 0 1px,
+      rgba(255, 250, 240, 0) 1px 10px
+    );
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 250, 240, 0.22) transparent;
+}
+
+html::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+  background: transparent;
+}
+html::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: rgba(255, 250, 240, 0.22);
+  background-clip: content-box;
+}
+html::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 250, 240, 0.34);
+  background-clip: content-box;
+}
+
+/* The experiment's own column, anchored to the viewport rather than to the
+ * page.
+ *
+ * It was painted on `html` once, as a third background layer, and that is what
+ * this replaces. A background image on the root element is positioned and
+ * tiled against the root *box*, while the colour beneath it covers the whole
+ * canvas -- so wherever the box did not reach, the cream and the hatch both
+ * stopped and bare --exp2-outside showed through. That is one cause with four
+ * faces: the column sat off-centre, a strip of unhatched dark appeared down
+ * the right-hand side, the cream stopped short of the bottom of the window,
+ * and a fast scroll tore the top of it away for a moment before it caught up.
+ *
+ * A `position: fixed` box has none of those problems by construction: its
+ * containing block is the viewport, so it is centred on the window, it reaches
+ * the window's bottom edge whatever the page height, and it does not move when
+ * the page scrolls. `inset: 0` is the whole viewport; the column is then a
+ * gradient across it, so --exp2-sheet-half remains the single knob.
+ *
+ * It is a pseudo-element rather than a real one so that nothing has to install
+ * it: Ibex replaces the trial subtree between trials, and body::before outlives
+ * that without any JavaScript owning it. `z-index: -1` puts it behind all trial
+ * content (body creates no stacking context) and above the canvas; it takes no
+ * pointer events, so it can never swallow a click. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(
+      to right,
+      rgba(0, 0, 0, 0) 0,
+      rgba(0, 0, 0, 0) calc(50% - var(--exp2-sheet-half)),
+      var(--exp2-bg) calc(50% - var(--exp2-sheet-half)),
+      var(--exp2-bg) calc(50% + var(--exp2-sheet-half)),
+      rgba(0, 0, 0, 0) calc(50% + var(--exp2-sheet-half)),
+      rgba(0, 0, 0, 0) 100%
+    ),
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 250, 240, 0.06) 0 1px,
+      rgba(255, 250, 240, 0) 1px 10px
+    );
 }
 
 /* `html body` rather than plain `body`, deliberately.
@@ -58,11 +178,16 @@ html {
  * as an off-white rectangle with stripes around it.
  *
  * One extra element in the selector settles it without `!important`, which
- * would have to be repeated on every property the runtime also sets. */
+ * would have to be repeated on every property the runtime also sets.
+ *
+ * The background is `transparent` rather than cream: the marked-off area is
+ * painted on the canvas and the experiment's column on body::before, both
+ * above, and a body background of any colour would sit between the two and
+ * hide the column. */
 html body {
   margin: 0;
   min-height: 100vh;
-  background: var(--exp2-bg);
+  background: transparent;
   color: var(--exp2-ink);
   font-family: var(--exp2-font-ui);
   font-size: 16px;
@@ -74,11 +199,27 @@ html body {
 /* ---------------------------------------------------------------------- *
  * Progress bar (PennController's own bare markup: a bar-container/bar pair
  * plus a progress-text paragraph — no PennController- prefix on these).
+ *
+ * Two things fight these rules, and both are ordinary facts of this project
+ * rather than anything unusual about the progress bar.
+ *
+ * The `html` prefix is the same trick as `html body` further up: the runtime
+ * ships its own css_includes/global_main.css, which styles exactly these three
+ * selectors (a white bar with a grey border, a blue fill, italic small text),
+ * and the build loads stylesheets in os.listdir order — "global_exp2" sorts
+ * before "global_main", so at equal specificity the runtime wins. Without the
+ * extra element in the selector this whole block is dead code, and the bar
+ * renders in the runtime's blue-on-white in the middle of a cream page.
+ *
+ * `height` needs `!important` on top of that because Ibex sets the height of
+ * both boxes with jQuery `.css()`, i.e. inline (0.8em), and an inline style
+ * beats any stylesheet rule without it. The width is deliberately *not*
+ * overridden: Ibex sets it inline too, and on the fill it rewrites it on every
+ * trial — that is the progress.
  * ---------------------------------------------------------------------- */
 
-div.bar-container {
-  width: min(320px, 70vw);
-  height: 6px;
+html div.bar-container {
+  height: 6px !important;
   margin: 1.5rem auto 0.25rem;
   border: none;
   border-radius: 999px;
@@ -86,14 +227,15 @@ div.bar-container {
   overflow: hidden;
 }
 
-div.bar {
-  height: 100%;
+html div.bar {
+  height: 100% !important;
   background: var(--exp2-red);
   transition: width 200ms ease;
 }
 
-p.progress-text {
+html p.progress-text {
   margin: 0 0 1.5rem;
+  padding-top: 0.35em;
   text-align: center;
   font-size: 0.78rem;
   font-style: normal;
@@ -134,7 +276,12 @@ p.progress-text {
   color: var(--exp2-ink-soft);
 }
 
-.PennController-Html a {
+/* Both, because links appear in two kinds of element and there is only one
+ * link colour: the consent form is a newHtml, but the payment screen's link to
+ * the compensation form is a newText, and a browser-default blue in the middle
+ * of this palette reads as a page from somewhere else. */
+.PennController-Html a,
+.PennController-Text a {
   color: var(--exp2-blue);
 }
 
@@ -222,6 +369,68 @@ p.progress-text {
 .PennController-Button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------------------- *
+ * "There is more below" cue.
+ *
+ * Fixed to the bottom edge of the window, shown only while the page can still
+ * be scrolled down (Exp2Dialogue.installScrollCue toggles the --on class).
+ * `pointer-events: none` so it can never intercept a click meant for the
+ * continue button underneath it.
+ *
+ * Deliberately not a control. It was a dark pill with a shadow, which is what
+ * every button in this experiment looks like, and participants read it as
+ * something to press. It is a statement about the page, so it is set as quiet
+ * text in the body colour, with no fill, no border and no shadow -- the only
+ * background is a soft fade of the column's own cream, which keeps the words
+ * legible over whatever they happen to sit on. The slow drift is what makes it
+ * catch the eye instead of the contrast a button would need.
+ * ---------------------------------------------------------------------- */
+
+.exp2-scroll-cue {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  z-index: 40;
+  transform: translate(-50%, 0.5rem);
+  /* The band has to be barely bigger than the words. It was tall enough to
+   * reach up over the rating scale, and a soft-edged panel lying across the
+   * slider reads as the scale having two halves -- which is the one thing this
+   * scale must not look like.
+   *
+   * The gradient's stop is the same length as the top padding, so the fade
+   * happens entirely in the few pixels above the text: no hard edge anywhere,
+   * and nothing tinted more than about six pixels above the cap height. Written
+   * against --exp2-bg rather than as hand-mixed rgba() values, so recolouring
+   * the palette recolours this too. */
+  padding: 0.35rem 1.1rem 0.5rem;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 0, var(--exp2-bg) 0.35rem);
+  color: var(--exp2-ink-soft);
+  font-family: var(--exp2-font-ui);
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.exp2-scroll-cue--on {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  animation: exp2-cue-drift 1.9s ease-in-out infinite;
+}
+
+/* Carries the -50% back, or the drift would throw the cue off centre for the
+ * length of the animation. */
+@keyframes exp2-cue-drift {
+  0%, 100% { transform: translate(-50%, 0); }
+  50% { transform: translate(-50%, 3px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .exp2-scroll-cue { transition: none; }
+  .exp2-scroll-cue--on { animation: none; }
 }
 
 /* ---------------------------------------------------------------------- *
@@ -365,11 +574,54 @@ label.error[for="__ALL_FIELDS__"]:empty {
   transform: rotate(45deg);
 }
 
+/* The tail points at the speaker's FACE, and both devils face inward: leftEv
+ * looks right, rightEv looks left, each with its pointed tail on its outer
+ * side. So the mirror-image offsets below put the tail on the INNER side of
+ * each bubble. They used to be `left: 26px` / `right: 26px`, which is the outer
+ * side — the speech appeared to come out of the back of each devil's head.
+ *
+ * Measured from the bubble's centre rather than its edge, because the bubble is
+ * centred over the portrait but is only as wide as its text: a short first
+ * turn is far narrower than the column, and a fixed inset from an edge then
+ * lands somewhere unrelated to the portrait (for a very short bubble, past the
+ * middle of it). 50% is the centre of both the bubble and the portrait; the
+ * tail is 14px wide, so -7px centres it, and --exp2-tail-shift then moves it
+ * off-centre toward the face.
+ *
+ * The tail clears the devil entirely and sits inboard of it, on the side its
+ * mouth is on -- so the speech reads as coming from beside the face rather
+ * than out of the head. That is why the step is a fraction of the portrait
+ * PLUS a constant, and not either one alone:
+ *
+ *   the fraction   reaches the silhouette's inner edge WHILE THAT DEVIL IS
+ *                  TALKING, which is the only time its bubble is on screen and
+ *                  so the only state that matters. Measured off the two PNGs
+ *                  (883x900, drawn `contain` in a square box, so the drawn
+ *                  width is 883/900 of it): head and horns reach 0.342
+ *                  (leftEv) and 0.343 (rightEv) of the box's width off its
+ *                  centre, symmetric enough for one value -- and the speaker
+ *                  is scaled by 1.1 about its bottom centre while it speaks
+ *                  (.exp2-speaker--active below), which pushes that edge out
+ *                  to 0.342 x 1.1 = 0.376. Measuring the resting portrait and
+ *                  forgetting the scale is what left the tail touching the
+ *                  horn the moment the devil enlarged to talk. A px constant
+ *                  cannot do this job at all, because the portrait is a
+ *                  clamp() and so has no single size -- 10px used to land on
+ *                  the crown of the head at every viewport.
+ *   the constant   is half the 14px tail plus an 11px gap, so the whole tail
+ *                  clears that edge by the same 11px at every portrait size.
+ *                  A fraction cannot do this job either: it would scale the
+ *                  gap away, and the tail would touch the horn on a phone. */
+.exp2-stage {
+  --exp2-portrait-size: clamp(96px, 16vw, 148px);
+  --exp2-tail-shift: calc(0.376 * var(--exp2-portrait-size) + 18px);
+}
+
 .exp2-bubble--left {
   border-color: var(--exp2-red-line);
 }
 .exp2-bubble--left::after {
-  left: 26px;
+  left: calc(50% - 7px + var(--exp2-tail-shift));
   border-right: 1px solid var(--exp2-red-line);
   border-bottom: 1px solid var(--exp2-red-line);
 }
@@ -378,7 +630,7 @@ label.error[for="__ALL_FIELDS__"]:empty {
   border-color: var(--exp2-blue-line);
 }
 .exp2-bubble--right::after {
-  right: 26px;
+  right: calc(50% - 7px + var(--exp2-tail-shift));
   border-right: 1px solid var(--exp2-blue-line);
   border-bottom: 1px solid var(--exp2-blue-line);
 }
@@ -434,8 +686,8 @@ label.error[for="__ALL_FIELDS__"]:empty {
 }
 
 .exp2-portrait {
-  width: clamp(96px, 16vw, 148px);
-  height: clamp(96px, 16vw, 148px);
+  width: var(--exp2-portrait-size);
+  height: var(--exp2-portrait-size);
   background-repeat: no-repeat;
   background-position: bottom center;
   background-size: contain;
@@ -471,18 +723,28 @@ label.error[for="__ALL_FIELDS__"]:empty {
   cursor: pointer;
   transition: background 150ms ease, border-color 150ms ease, transform 150ms ease;
 }
-.exp2-replay:hover {
+.exp2-replay:hover:not(:disabled) {
   border-color: var(--exp2-ink-soft);
 }
-.exp2-replay:active {
+.exp2-replay:active:not(:disabled) {
   transform: translateY(1px);
 }
 .exp2-replay:focus-visible {
   outline: 2px solid var(--exp2-focus);
   outline-offset: 2px;
 }
-.exp2-replay[hidden] {
-  display: none;
+
+/* Unavailable, not gone. The button used to be hidden while the recording
+ * played and again once no listens remained, and the card changed height
+ * underneath the participant both times -- at the exact moment they were
+ * trying to take the scene in. It now keeps its place and its wording
+ * ("Riproduci", always); only its colour and its clickability change, so
+ * nothing on screen moves from the start of the trial to the end of it. */
+.exp2-replay:disabled {
+  opacity: 0.45;
+  color: var(--exp2-ink-soft);
+  border-color: var(--exp2-line);
+  cursor: default;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -506,9 +768,9 @@ label.error[for="__ALL_FIELDS__"]:empty {
   .exp2-scene {
     gap: 0.6rem;
   }
-  .exp2-portrait {
-    width: clamp(72px, 22vw, 108px);
-    height: clamp(72px, 22vw, 108px);
+  /* The tail shift is a fraction of this, so it follows on its own. */
+  .exp2-stage {
+    --exp2-portrait-size: clamp(72px, 22vw, 108px);
   }
   .exp2-bubble {
     font-size: 0.92rem;
@@ -598,10 +860,21 @@ input[type="range"]::-moz-range-progress {
   background: var(--exp2-line-strong);
 }
 
-/* The thumb is invisible until Exp2Dialogue.watchSlider() adds
- * .exp2-touched on the first `input` event — born dead-centre, a visible
- * thumb there would silently anchor the response before the participant has
- * made one. */
+/* The thumb is visible from the start, sitting at the centre value the input
+ * is born at, and Exp2Dialogue.watchSlider() adds .exp2-touched on the first
+ * interaction to make it solid.
+ *
+ * This reverses an earlier decision, and the reason for that decision still
+ * holds: a visible thumb at dead centre anchors ratings toward 50. It was
+ * hidden for exactly that reason. But an invisible thumb left the scale
+ * looking like a printed line rather than a control -- nothing on screen said
+ * it could be dragged -- and that costs more than the anchoring does. The
+ * quiet-to-solid change is what is left of the distinction: an untouched
+ * scale still looks unanswered.
+ *
+ * The response is not anchored in the data by this: "Avanti" is gated on
+ * exp2-answered, which only a real interaction sets, so 50 can be submitted
+ * deliberately (a click counts -- see watchSlider) but never by inaction. */
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 22px;
@@ -609,31 +882,27 @@ input[type="range"]::-webkit-slider-thumb {
   margin-top: -8px;
   border-radius: 50%;
   background: var(--exp2-paper);
-  border: 2px solid var(--exp2-ink);
-  box-shadow: 0 1px 3px rgba(30, 24, 18, 0.25);
-  opacity: 0;
-  transform: scale(0.6);
-  transition: opacity 150ms ease, transform 150ms ease;
+  border: 2px solid var(--exp2-line-strong);
+  box-shadow: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 input[type="range"]::-moz-range-thumb {
   width: 22px;
   height: 22px;
   border-radius: 50%;
   background: var(--exp2-paper);
-  border: 2px solid var(--exp2-ink);
-  box-shadow: 0 1px 3px rgba(30, 24, 18, 0.25);
-  opacity: 0;
-  transform: scale(0.6);
-  transition: opacity 150ms ease, transform 150ms ease;
+  border: 2px solid var(--exp2-line-strong);
+  box-shadow: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
 input[type="range"].exp2-touched::-webkit-slider-thumb {
-  opacity: 1;
-  transform: scale(1);
+  border-color: var(--exp2-ink);
+  box-shadow: 0 1px 3px rgba(30, 24, 18, 0.25);
 }
 input[type="range"].exp2-touched::-moz-range-thumb {
-  opacity: 1;
-  transform: scale(1);
+  border-color: var(--exp2-ink);
+  box-shadow: 0 1px 3px rgba(30, 24, 18, 0.25);
 }
 
 input[type="range"]:focus-visible {
@@ -642,8 +911,15 @@ input[type="range"]:focus-visible {
   border-radius: 999px;
 }
 
+/* One rule per vendor, never a shared selector list: a list containing a
+ * pseudo-element another engine does not know is invalid *as a whole*, so
+ * neither engine applies it and the declarations land nowhere. The thumb
+ * rules further up this file are split for the same reason; this block was
+ * not, so reduced-motion users kept the 150ms border/shadow transition. */
 @media (prefers-reduced-motion: reduce) {
-  input[type="range"]::-webkit-slider-thumb,
+  input[type="range"]::-webkit-slider-thumb {
+    transition: none !important;
+  }
   input[type="range"]::-moz-range-thumb {
     transition: none !important;
   }
@@ -689,15 +965,29 @@ input[type="range"]:focus-visible {
  * that would let a participant advance without ever having touched the
  * slider (its value would silently submit at the born-dead-centre default).
  * main.js adds `exp2-answered` to the same container that carries
- * exp2-stage/exp2-done, on the slider's first `input` event (see
- * Exp2Dialogue.watchSlider() in exp2_dialogue.js). Same specificity fight as
- * the slider block above: the generic exp2-done rule further up this file
- * already reveals every sibling container once done, so the button has to be
- * hidden back down at higher specificity and then re-revealed at higher
- * specificity still once exp2-answered is also present. */
+ * exp2-stage/exp2-done, on the slider's first interaction (see
+ * Exp2Dialogue.watchSlider() in exp2_dialogue.js).
+ *
+ * `visibility`, not `display`, and that is the whole point of this pair: the
+ * button's box is laid out from the moment the slider appears, and only its
+ * visibility changes when the slider is touched. Hiding it with `display`
+ * meant the page grew by the height of a button at the instant of the first
+ * click, which shifted everything below the cursor and set keepInView
+ * scrolling — a page moving under a participant who is mid-click is how a
+ * misclick happens. Now the space is already there, the reveal moves nothing,
+ * and keepInView usually finds the button in view and does nothing at all.
+ *
+ * `visibility: hidden` and not `opacity: 0`: an invisible-but-clickable button
+ * would let a participant advance without rating anything. A hidden one takes
+ * no clicks, no focus and no place in the tab order — the guarantee `display`
+ * gave, without the reflow.
+ *
+ * Before exp2-done the generic rule at the top of this section still keeps it
+ * out of the layout entirely (`display: none`), so the space appears together
+ * with the scale rather than during the recording. */
 .exp2-stage.exp2-done ~ .PennController-elementContainer.PennController-Button-container {
-  display: none !important;
+  visibility: hidden;
 }
 .exp2-stage.exp2-done.exp2-answered ~ .PennController-elementContainer.PennController-Button-container {
-  display: inherit !important;
+  visibility: visible;
 }
