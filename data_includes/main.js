@@ -1326,7 +1326,8 @@ Sequence(
     ...judgmentSequence,
     "send",
     "end",
-    "payment"
+    "payment",
+    "goodbye"
 );
 
 // ------------------------------------------------------------
@@ -1342,7 +1343,7 @@ newTrial("send",
 // screen has still been recorded, and is still owed the money.
 newTrial("end",
     startAtTop(),
-    newText("L'esperimento è terminato. Grazie per aver partecipato!")
+    newText("L'esperimento è terminato.")
         .css("font-size", "1.6em")
         .css("font-weight", "bold")
         .center()
@@ -1411,5 +1412,44 @@ newTrial("payment",
         "Il codice serve solo a verificare che tu abbia completato l'esperimento, e non è collegato alle tue risposte.")
         .css("font-size", "0.9em")
     ,
-    newButton("wait").wait()   // never clicked: the experiment ends on this screen
+    // The participant's own signal that they are finished with the form. The
+    // screen used to end on an unprinted, never-clicked wait(), which left the
+    // last thing they saw indistinguishable from a page that had stalled --
+    // with a code on it they had just been asked to copy elsewhere, so "is it
+    // safe to leave now?" was a real question with no answer on screen.
+    //
+    // Nothing depends on it being pressed: the results went up at `send`, three
+    // trials ago. It buys the acknowledgement on "goodbye" and nothing else,
+    // which is why it can sit after a link that opens another tab.
+    newButton("done", "Fatto")
+        .css("margin-top", "1.5em")
+        .css("font-size", "1em")
+        .center()
+        .print()
+        .wait()
+);
+
+// ------------------------------------------------------------
+// The last screen
+// ------------------------------------------------------------
+// Deliberately a sentence and not a "Chiudi" button. `window.close()` is only
+// honoured for a window script opened itself; in the ordinary case -- a tab the
+// participant opened from a recruitment link -- it is ignored with nothing
+// visible happening, so the button would read as broken exactly where the
+// experiment is trying to say that everything worked.
+newTrial("goodbye",
+    startAtTop(),
+    newText("Grazie per aver partecipato!")
+        .css("font-size", "1.6em")
+        .css("font-weight", "bold")
+        .center()
+        .print(),
+
+    newText("Ora puoi chiudere questa finestra.")
+        .css("font-size", "1.2em")
+        .css("margin-top", "1em")
+        .center()
+        .print(),
+
+    newButton("stay").wait()   // never clicked: the experiment ends here
 );

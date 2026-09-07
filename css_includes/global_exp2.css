@@ -276,6 +276,16 @@ html p.progress-text {
   color: var(--exp2-ink-soft);
 }
 
+/* Emphasis inside that body text takes the full ink, not the soft one it would
+ * otherwise inherit. The consent form's one emphasised phrase spans an element
+ * boundary — "circa <span class="exp2-duration"> minuti" — and that span sets
+ * its own colour, so without this the number came out darker than the two
+ * words around it and the phrase read as three different emphases. */
+.PennController-Html strong,
+.PennController-Html b {
+  color: var(--exp2-ink);
+}
+
 /* Both, because links appear in two kinds of element and there is only one
  * link colour: the consent form is a newHtml, but the payment screen's link to
  * the compensation form is a newText, and a browser-default blue in the middle
@@ -285,11 +295,25 @@ html p.progress-text {
   color: var(--exp2-blue);
 }
 
+/* `font: inherit` first, and it is doing real work rather than tidying: a UA
+ * stylesheet gives every form control its own font (13.33px in Chromium), and
+ * `em` on a control is that font, not the paragraph's. So `1.05em` here used to
+ * resolve to 14px against 16px text — smaller than the text, not slightly
+ * larger — and the `vertical-align` nudge was scaled to the same wrong em.
+ *
+ * The alignment is then stated as a fraction of the text's em: -0.125em puts
+ * the box's centre on the middle of the capital-letter band, which is where a
+ * control beside a line of text reads as level with it. It also keeps the whole
+ * box inside the line's content area (which runs from -0.94em to +0.19em about
+ * the baseline at this font and size), so the box cannot deepen the line it is
+ * on and open a gap above the next one. Both facts are measured, not assumed —
+ * check_layout.mjs asserts them. */
 .PennController-Html input[type="checkbox"] {
-  width: 1.05em;
-  height: 1.05em;
+  font: inherit;
+  width: 1em;
+  height: 1em;
   margin-right: 0.45em;
-  vertical-align: -0.2em;
+  vertical-align: -0.125em;
   accent-color: var(--exp2-red);
 }
 
