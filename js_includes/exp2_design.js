@@ -12,7 +12,7 @@ window.EXP2_DESIGN = {
     continuations: { levels: ["on", "off"], raw: { "on": "on", "off": "off" } }
   },
   columns: {
-    item: ["subexp", "condition", "cond_question", "cond_answer", "num", "kid", "group", "context", "request", "question", "answer", "continuation", "audio", "q_start_ms", "q_end_ms", "a_start_ms", "a_end_ms", "total_ms", "c_start_ms"],
+    item: ["subexp", "condition", "cond_question", "cond_answer", "num", "kid", "group", "context", "request", "question", "answer", "continuation", "audio", "q_start_ms", "q_end_ms", "a_start_ms", "a_end_ms", "total_ms", "c_start_ms", "audio_nocont", "total_ms_nocont"],
     results: ["session_id", "phase", "split", "continuations", "group", "trial_index", "training_item", "subexp", "condition", "cond_question", "cond_answer", "num", "kid", "item_id", "item_context", "item_reward_condition", "item_question", "item_answer", "item_continuation", "audio_file", "recording_ms", "rating", "slider_touched", "slider_moves", "replayed", "play_press_ms", "first_touch_ms", "last_touch_ms", "submit_ms", "audio_played_ms", "blur_count", "blurred_ms", "playback_stalls", "age", "gender", "handed", "lang", "caff", "study"]
   },
   validateRow: function (row) {

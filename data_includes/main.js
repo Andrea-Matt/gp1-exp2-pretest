@@ -132,13 +132,23 @@ const SPLIT = (rawSplit === "sm" || rawSplit === "or") ? rawSplit : "whole";
 const rawSpeed = GetURLParameter("speed");
 if (rawSpeed) window.EXP2_SPEED = Number(rawSpeed);
 
-// ?cont=off -> the answers stop where their continuation clause would begin.
+// ?cont=off -> the answers have no continuation clause.
 //
 // A pilot variant, to hear what the pretest is like without the continuations
-// before deciding whether to keep them. Nothing is re-recorded for it: the
-// continuation is its own piece in the assembled audio, so `c_start_ms` is
-// where it starts, and stopping the turn there is the whole mechanism. The
-// displayed answer is cut to match, so nobody reads a clause they do not hear.
+// before deciding whether to keep them. It plays its OWN recordings -- the same
+// pieces assembled without the continuation piece, named by `audio_nocont` --
+// and the displayed answer is cut to match, so nobody reads a clause they do
+// not hear.
+//
+// It used to work by stopping the ordinary recording at `c_start_ms`, and that
+// was wrong in a way nothing local could show. `audio.pause()` stops the
+// element to the millisecond -- measured at -2 to +10 ms against the deployed
+// build, with the audio coming out of the archive -- but the samples the
+// operating system has already handed to the output device still reach the
+// participant. On wired output that queue is 10-30 ms; on Bluetooth it is
+// 150-250 ms, which is the first syllable of the clause this variant exists to
+// withhold. Reported from the farm, on a build every local measurement called
+// correct. There is now nothing to stop and no continuation in the file.
 //
 // PRETEST ONLY, enforced here rather than trusted to the link. In the test
 // phase the continuation IS the manipulation -- `cond_answer` is impl/canc/ign,
@@ -1013,17 +1023,34 @@ Template(
         // the network. See the header comment and CLAUDE.md fact #4.
         // See the training trial: local runs only. The archive is the deployed
         // preload, and it has already finished by the time any trial runs.
-        if (!AUDIO_ZIP) newAudio("stim", row.audio);
-
         // What this trial actually plays and shows. Identical to the row on an
         // ordinary run, and on a `?cont=off` run identical for the wh fillers
-        // too -- `c_start_ms` is `total_ms` when there is no continuation to
-        // cut, so the fillers need no special case here.
+        // too -- `audio_nocont` IS `audio` when there is no continuation to
+        // leave off, so the fillers need no special case here.
+        //
+        // `cutEnd` is the whole turn, not a truncation of a longer file: on an
+        // `off` run it is the companion recording's own duration, so the stage
+        // is again being told where its audio ends rather than where to stop it
+        // early. `truncatesRecording()` in exp2_dialogue.js therefore answers no
+        // on every row of every run, which is the point.
         const cutting = CONTINUATIONS === "off";
-        const cutEnd = cutting ? Number(row.c_start_ms) : Number(row.total_ms);
+        const cutAudio = cutting ? row.audio_nocont : row.audio;
+        const cutEnd = Number(cutting ? row.total_ms_nocont : row.total_ms);
         const cutAnswer = cutting
             ? answerWithoutContinuation(row.answer, row.continuation)
             : row.answer;
+
+        // Declaring the Audio element (never printed or played through it)
+        // is enough to get PCIbex's own preloader to fetch this URL ahead of
+        // the trial; the dialogue stage's own <audio> (exp2_dialogue.js)
+        // requests the identical URL and hits the browser cache instead of
+        // the network. See the header comment and CLAUDE.md fact #4.
+        // See the training trial: local runs only. The archive is the deployed
+        // preload, and it has already finished by the time any trial runs.
+        // Preloads what will actually be played, which on an `off` run is the
+        // companion -- preloading `row.audio` there would warm the cache for a
+        // file this trial never requests.
+        if (!AUDIO_ZIP) newAudio("stim", cutAudio);
 
         // Every _ms column below is a difference against this, read from the
         // one shared clock (Exp2Dialogue.now). Nothing here calls Date.now():
@@ -1080,9 +1107,9 @@ Template(
                 }
                 const dialogue = Exp2Dialogue.mount(container, {
                     question: row.question,
-                    // On a `?cont=off` run the turn ends where the continuation
-                    // piece begins, and the displayed text ends with it. Both,
-                    // or neither: a shortened recording under the full text
+                    // On a `?cont=off` run this is the companion recording and
+                    // the text that matches it. All three move together, or
+                    // none of them: a shortened recording under the full text
                     // would show a clause nobody heard, and the full recording
                     // under shortened text would play one nobody could read.
                     answer: cutAnswer,
@@ -1091,7 +1118,7 @@ Template(
                     aStart: Number(row.a_start_ms),
                     aEnd: cutEnd,
                     totalMs: cutEnd,
-                    audioUrl: audioFor(row.audio),
+                    audioUrl: audioFor(cutAudio),
                     allowReplay: true,
                     playLabel: "Riproduci"
                 });
@@ -1261,15 +1288,20 @@ Template(
             .log("item_question", row.question)
             .log("item_answer", row.answer)
             .log("item_continuation", row.continuation)
-            .log("audio_file", row.audio)
-            // How long the stimulus was AS PRESENTED, not how long the mp3 is:
-            // on a `continuations = off` row the turn stopped at `c_start_ms`
-            // and that is what this says. The two differ only there, and the
-            // file's own length is always recoverable from the item table --
-            // whereas what a participant actually sat through is not, if this
-            // column reports the file instead. It is also the one thing in the
-            // results that can be checked exactly against `c_start_ms`, which
-            // is how verify.mjs knows the variant did anything at all.
+            // The recording actually played, which on a `continuations = off`
+            // row is the companion assembled without the continuation. Not
+            // `row.audio`: that names a file this trial never requested, and
+            // "which recording did this participant hear" is the one question
+            // this column exists to answer.
+            .log("audio_file", cutAudio)
+            // How long that recording is. On a `continuations = off` row it is
+            // the companion's own length, which is shorter than `total_ms` by
+            // the continuation plus the gap before it. The file's own length is
+            // always recoverable from the item table; what a participant
+            // actually sat through is not, unless it is written down here. It
+            // is also the one thing in the results that can be checked exactly
+            // against `total_ms_nocont`, which is how verify.mjs knows the
+            // variant did anything at all.
             .log("recording_ms", cutEnd)
             // Response
             .log("rating", getVar("ratingVar"))
