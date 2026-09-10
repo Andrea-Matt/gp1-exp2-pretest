@@ -301,19 +301,40 @@ html p.progress-text {
  * resolve to 14px against 16px text — smaller than the text, not slightly
  * larger — and the `vertical-align` nudge was scaled to the same wrong em.
  *
- * The alignment is then stated as a fraction of the text's em: -0.125em puts
- * the box's centre on the middle of the capital-letter band, which is where a
- * control beside a line of text reads as level with it. It also keeps the whole
- * box inside the line's content area (which runs from -0.94em to +0.19em about
- * the baseline at this font and size), so the box cannot deepen the line it is
- * on and open a gap above the next one. Both facts are measured, not assumed —
- * check_layout.mjs asserts them. */
+ * Where the box sits on its line is then two declarations, and they are split
+ * that way because a LENGTH vertical-align is not portable here. It is measured
+ * from the control's own baseline, and the engines do not put that in the same
+ * place: for the identical rule WebKit lays the box 0.125em lower than Chromium
+ * does (`vertical-align: baseline` leaves the box sitting on the baseline in
+ * Chromium and hanging 0.125em below it in WebKit). So the -0.125em this used to
+ * carry was level in Chromium and a visible 1.6px low in Safari, which is what a
+ * participant — and Andrea — actually looked at.
+ *
+ * `middle` has no such problem: it is defined against the PARENT's x-height, so
+ * both engines put the box's centre 0.263em above the baseline, to within a
+ * fortieth of a pixel. That is still lower than a capital letter, because
+ * x-height is; `bottom: 0.09em` lifts the centre the rest of the way onto the
+ * middle of the cap band (0.352em above the baseline for this font stack), which
+ * is the height an uppercase T occupies and where a control beside a line of
+ * text reads as level with it. Measured in both engines: the box's centre lands
+ * within 0.02px of the cap-band centre in each.
+ *
+ * `position: relative` rather than a margin so the shift is painted and not laid
+ * out: the line box is still measured from the unshifted box, so the box cannot
+ * deepen its line and open a gap above the next one. All of it is measured, not
+ * assumed — check_layout.mjs asserts the cap-band match and the line depth.
+ *
+ * margin-block is zeroed because the UA gives a checkbox 3px of it top and
+ * bottom, and only margin-right was ever overridden here. */
 .PennController-Html input[type="checkbox"] {
   font: inherit;
   width: 1em;
   height: 1em;
+  margin-block: 0;
   margin-right: 0.45em;
-  vertical-align: -0.125em;
+  vertical-align: middle;
+  position: relative;
+  bottom: 0.09em;
   accent-color: var(--exp2-red);
 }
 
@@ -1027,4 +1048,27 @@ input[type="range"]:focus-visible {
 }
 .exp2-stage.exp2-done.exp2-answered ~ .PennController-elementContainer.PennController-Button-container {
   visibility: visible;
+}
+
+/* ------------------------------------------------------------------------
+ * The message a trial shows when its dialogue stage could not be built.
+ *
+ * See stageFailureNotice() in data_includes/main.js for why this exists: the
+ * alternative is a context sentence on a page that never changes again. Styled
+ * like the rest of the experiment rather than like an error console, because the
+ * participant has done nothing wrong and the only thing asked of them is a
+ * reload. The button reuses .exp2-replay, so it looks like the play button they
+ * have been pressing all along.
+ * ---------------------------------------------------------------------- */
+.exp2-stage-failed {
+  max-width: 34em;
+  margin: 0 auto 1.25em;
+  padding: 0.9em 1.1em;
+  border: 1px solid var(--exp2-red-line);
+  border-left: 4px solid var(--exp2-red);
+  border-radius: var(--exp2-radius-sm);
+  background: var(--exp2-paper);
+  color: var(--exp2-ink);
+  text-align: left;
+  line-height: 1.55;
 }

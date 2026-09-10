@@ -120,6 +120,26 @@ const AUDIO_ZIP = window.EXP2_AUDIO_ZIP || "";
 // would stall on a 404 that nothing reports.
 const audioFor = (name) => Exp2Dialogue.audioUrl(name);
 
+// Every recording this session can ask for, collected as the Templates below
+// build their trials -- which happens when this script is evaluated, before the
+// Sequence runs a single screen.
+//
+// It exists so that "the archive is missing a recording" is answered at the
+// door instead of forty items in. That throw from audioUrl lands inside the
+// judgment trial's mount-stage function, and a throw there is not a logged
+// failure or a skipped item: PennController stops executing the trial's
+// remaining commands and the trial never ends. The participant is left with the
+// prompt, the context and the request on screen, no devils, no play button, no
+// slider and no Avanti -- because none of those had been printed yet -- and the
+// whole session is lost, with nothing in the results to say why. Measured by
+// throwing deliberately from mount-stage: `run.mjs` reports "stalled: no
+// visible change and no results posted" and resultsTable is empty.
+//
+// So the preload trial checks this set against the unpacked archive and refuses
+// to start if anything is absent. See the preload trial.
+const NEEDED_AUDIO = [];
+const needsAudio = (name) => { if (name) NEEDED_AUDIO.push(name); return name; };
+
 // ?split=sm / ?split=or / absent -> "whole". Any other value is treated as
 // "whole" too, rather than silently producing zero trials.
 const rawSplit = GetURLParameter("split");
@@ -328,6 +348,35 @@ newTrial("preload",
                 ? "Caricamento in corso…"
                 : `Caricamento in corso… ${Math.round(frac * 100)}%`);
         }).then(() => {
+            // Every recording the session will ask for has to be in there.
+            // Without this the first trial naming a missing entry throws out of
+            // audioFor() inside mount-stage, which stops that trial dead and
+            // ends the session with no results and nothing on screen to say so
+            // -- see NEEDED_AUDIO. A stale archive on the server is the way that
+            // happens in practice: the build and the item tables move together
+            // in git, the zip is uploaded by hand.
+            //
+            // Measured, by serving the same build twice against two archives
+            // built from the same recordings: with the complete one the session
+            // runs on and reaches the welcome screen; with one two entries
+            // short it stops here, shows the message below, never reaches
+            // welcome, and the thrown error names the two files.
+            const missing = [];
+            const seen = {};
+            for (const name of NEEDED_AUDIO) {
+                if (seen[name]) continue;
+                seen[name] = true;
+                try { Exp2Dialogue.audioUrl(name); }
+                catch (e) { missing.push(name); }
+            }
+            if (missing.length) {
+                say("Le registrazioni scaricate non sono complete (" +
+                    missing.length + " mancanti). Non è possibile iniziare: " +
+                    "scrivi a chi ti ha inviato il link.");
+                throw new Error("the archive is missing " + missing.length +
+                    " recording(s) this session needs, e.g. " +
+                    missing.slice(0, 3).join(", "));
+            }
             say("");
         }, (err) => {
             // A participant who cannot hear anything must be told, not left on
@@ -694,6 +743,7 @@ Template(
         // PennController resource at a bare filename would make it fetch from
         // the farm, which does not have it.
         if (!AUDIO_ZIP) newAudio("training-stim", row.audio);
+        needsAudio(row.audio);
 
         // Same three pieces of per-trial state the judgment trial keeps, for
         // the same reason: one clock origin, and two watchers whose listeners
@@ -704,6 +754,7 @@ Template(
 
         return newTrial("training",
             startAtTop(),
+            ...clearResponseVars(),
             // Order on screen: intro, context, request, dialogue — and then,
             // only once the recording has played through, the prompt, the
             // comment on the item and the slider.
@@ -747,9 +798,11 @@ Template(
             newText("stage", "<div></div>").print(),
 
             newFunction("training-mount", () => {
-                const container = document.querySelector(".PennController-stage-container");
+              const container = document.querySelector(".PennController-stage-container");
+              try {
                 if (window.__exp2CurrentDialogue) {
                     try { window.__exp2CurrentDialogue.destroy(); } catch (e) { /* ignore */ }
+                    window.__exp2CurrentDialogue = null;
                 }
                 const dialogue = Exp2Dialogue.mount(container, {
                     question: row.question,
@@ -765,6 +818,10 @@ Template(
                 });
                 window.__exp2CurrentDialogue = dialogue;
                 dialogue.run();
+              } catch (e) {
+                stageFailureNotice(container, e);
+                throw e;
+              }
             }).call(),
 
             // Printed after the stage, so both are revealed with the slider.
@@ -994,6 +1051,89 @@ newVar("blurredVar").global();
 newVar("stallsVar").global();
 newVar("trialIndexVar").global();
 
+// Every response column, cleared at the start of the trial that will log it.
+//
+// These are `.global()` vars by necessity (a newVar created inside a trial
+// cannot be resolved by the `.log()` calls hanging off newTrial), and a global
+// var's value outlives the trial that set it. `.log()` reads whatever is in it
+// when the row is written. So a trial that ends WITHOUT having executed its own
+// `getVar(...).set()` commands logs the previous trial's rating, timings, move
+// counts and stall count -- a complete, plausible response row for an item the
+// participant may never have answered. Nothing about such a row looks wrong.
+//
+// This is not hypothetical. The 2026-09-06 pilot session carries forty rows
+// holding one trial's response block and twenty-four holding another's, under
+// correct and varying item text; it took comparing `trial_index` against the
+// item columns to see it at all, and the same script produced clean sessions on
+// 2026-09-08 and 2026-09-10. Whatever skipped those commands, a stale global is
+// what turned it into data.
+//
+// "NA" rather than 0 or an empty string, for the reason sinceStart() gives:
+// read_exp2.R coerces these with as.numeric(), "NA" becomes a real NA, and
+// assert_exp2() stops on a trial with no rating. An aborted trial is then a
+// loud failure in the loader rather than a row in a model.
+//
+// Commands, not assignments inside a newFunction: `.set()` builds a command
+// object the engine has to execute, and calling it from plain JS constructs it
+// and drops it -- the same trap the reading block below warns about.
+// A function declaration, not a const: the training Template above this line
+// spreads it into its trial, and a `const` would still be in its temporal dead
+// zone when that Template's callback runs -- which is at script evaluation, not
+// when the trial plays.
+// What a trial shows when its dialogue stage cannot be built at all.
+//
+// Nothing should reach this: the preload trial checks the archive against
+// NEEDED_AUDIO, which is the one thing known to make the mount throw. It is here
+// because of what the alternative looks like. A throw inside mount-stage stops
+// the trial's remaining commands, so the stage, the slider and the continue
+// button are never printed and the participant is left looking at a context
+// sentence on a page that will never change again -- no error, no message, no
+// way forward, and no results, because the session never reaches SendResults.
+// Seen once in a pilot run on 2026-09-08, and reproduced exactly by throwing
+// from mount-stage on purpose.
+//
+// The trial still cannot continue -- there is nothing to rate, and printing the
+// slider anyway would collect a judgment on a recording nobody heard, which is
+// worse than losing the session. What this changes is that the dead end says so,
+// and names the one action that can help.
+//
+// In words, and deliberately not as a button -- the same reason `goodbye` does
+// not offer a "Chiudi" button. A reload button here is a control in the middle of
+// a page that has stopped, and the autopilot presses every control it finds: it
+// reloaded into the same failure eighteen times in ten minutes, which turned a
+// clean "stalled, nothing posted" into a timeout and hid what had happened.
+// Measured; that is how this paragraph got written.
+function stageFailureNotice(container, err) {
+    if (!container) return;
+    container.classList.remove("exp2-stage");
+    while (container.firstChild) container.removeChild(container.firstChild);
+    const p = document.createElement("p");
+    p.className = "exp2-stage-failed";
+    p.textContent = "Si è verificato un problema nel caricamento di questo " +
+        "dialogo, e l'esperimento non può continuare. Prova a ricaricare la " +
+        "pagina; se il problema si ripresenta, scrivi a chi ti ha inviato il " +
+        "link.";
+    container.appendChild(p);
+    // Named so a browser console still carries the cause for whoever is asked.
+    try { console.error("exp2: stage mount failed", err); } catch (e) { /* ignore */ }
+}
+
+function clearResponseVars() { return [
+    getVar("ratingVar").set("NA"),
+    getVar("touchedVar").set("NA"),
+    getVar("movesVar").set("NA"),
+    getVar("replayedVar").set("NA"),
+    getVar("playPressVar").set("NA"),
+    getVar("firstTouchVar").set("NA"),
+    getVar("lastTouchVar").set("NA"),
+    getVar("submitVar").set("NA"),
+    getVar("audioPlayedVar").set("NA"),
+    getVar("blurCountVar").set("NA"),
+    getVar("blurredVar").set("NA"),
+    getVar("stallsVar").set("NA"),
+    getVar("trialIndexVar").set("NA")
+]; }
+
 // Presentation order, logged rather than derived.
 //
 // It used to be recovered in analysis/read_exp2.R by sorting each
@@ -1034,7 +1174,7 @@ Template(
         // early. `truncatesRecording()` in exp2_dialogue.js therefore answers no
         // on every row of every run, which is the point.
         const cutting = CONTINUATIONS === "off";
-        const cutAudio = cutting ? row.audio_nocont : row.audio;
+        const cutAudio = needsAudio(cutting ? row.audio_nocont : row.audio);
         const cutEnd = Number(cutting ? row.total_ms_nocont : row.total_ms);
         const cutAnswer = cutting
             ? answerWithoutContinuation(row.answer, row.continuation)
@@ -1061,6 +1201,7 @@ Template(
 
         return newTrial("judgment",
             startAtTop(),
+            ...clearResponseVars(),
             newText("prompt", "Quanto è accettabile la risposta alla domanda?")
                 .css("margin-bottom", "2em")
                 .center()
@@ -1098,7 +1239,8 @@ Template(
             newText("stage", "<div></div>").print(),
 
             newFunction("mount-stage", () => {
-                const container = document.querySelector(".PennController-stage-container");
+              const container = document.querySelector(".PennController-stage-container");
+              try {
                 // The stage's <audio> is a detached `new Audio()`, so PCIbex taking
                 // the trial's DOM away does not stop it playing.
                 if (window.__exp2CurrentDialogue) {
@@ -1124,6 +1266,14 @@ Template(
                 });
                 window.__exp2CurrentDialogue = dialogue;
                 dialogue.run();
+              } catch (e) {
+                // See stageFailureNotice(): the trial stops either way, but it
+                // stops visibly. Re-thrown so run.mjs's pageErrors still names
+                // the cause -- a check must not go quiet because a participant
+                // now gets a message.
+                stageFailureNotice(container, e);
+                throw e;
+              }
             }).call(),
 
             // No .wait() here: .slider() renders a bare <input type="range">

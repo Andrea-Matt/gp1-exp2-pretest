@@ -6,7 +6,8 @@
 window.EXP2_TRAINING_FRAME = {
   "closing": [
     "Gli esempi sono finiti. Ora inizia l'esperimento vero e proprio.",
-    "Alcune risposte ti sembreranno chiaramente accettabili o inaccettabili, ma per altre potresti voler dare una valutazione intermedia. Usa pure tutto l'intervallo del cursore, non solo i due estremi."
+    "Alcune risposte ti sembreranno chiaramente accettabili o inaccettabili, ma per altre potresti voler dare una valutazione intermedia. Usa pure tutto l'intervallo del cursore, non solo i due estremi.",
+    "Se sei in dubbio, può sempre esserti utile rileggere il contesto prima di riascoltare."
   ],
   "opening": [
     "Prima di cominciare, facciamo qualche prova insieme. Puoi ascoltare ogni dialogo al massimo due volte."
