@@ -14,7 +14,7 @@
 // otherwise unaware of anything else on the page — the rating slider and
 // continue button are gated purely in CSS off that state class.
 //
-// Exp2Dialogue.watchSlider(input) and Exp2Dialogue.fillDuration(split) are
+// Exp2Dialogue.watchSlider(input) and Exp2Dialogue.fillDuration(phase, split) are
 // small standalone helpers used by the rest of the experiment; see
 // global_exp2.css for the CSS half of both.
 
@@ -1204,9 +1204,20 @@
 
     audioZipLoaded: function () { return zipEntries !== null; },
 
+    // The two figures in the consent form that depend on which link the
+    // participant opened: how long the study takes, and what it pays. Both are
+    // declared once each in chunk_includes/consent_v2.html, as a span carrying
+    // one attribute per phase x link, and filled here.
+    //
+    // One function for both, keyed off the same attribute name, because they
+    // are the same problem: a number a participant is deciding on, which is not
+    // the same number on all four links, in a file that serves all four.
+    // check_contracts.mjs asserts every attribute of both spans is filled, so a
+    // link whose consent screen would read "circa __ minuti" fails before it
+    // can be deployed rather than in front of someone.
     fillDuration: function (phase, split) {
       var attr = 'data-' + (phase || 'pretest') + '-' + (split ? 'split' : 'whole');
-      var nodes = document.querySelectorAll('.exp2-duration');
+      var nodes = document.querySelectorAll('.exp2-duration, .exp2-reward');
       for (var i = 0; i < nodes.length; i++) {
         var v = nodes[i].getAttribute(attr);
         nodes[i].textContent = v == null ? '__' : v;

@@ -287,9 +287,14 @@ html p.progress-text {
 }
 
 /* Both, because links appear in two kinds of element and there is only one
- * link colour: the consent form is a newHtml, but the payment screen's link to
- * the compensation form is a newText, and a browser-default blue in the middle
- * of this palette reads as a page from somewhere else. */
+ * link colour: the consent form is a newHtml, but the last screen's link back
+ * to Prolific is a newText, and a browser-default blue in the middle of this
+ * palette reads as a page from somewhere else.
+ *
+ * The Text half matters more than it looks. That link is the one element in the
+ * experiment whose failure costs a participant their payment, and the only
+ * check that can see what it looks like is a screenshot somebody takes: no run
+ * reaches that screen. Measured off one, 2026-09-13, at #3d6088. */
 .PennController-Html a,
 .PennController-Text a {
   color: var(--exp2-blue);
@@ -495,19 +500,28 @@ html p.progress-text {
 }
 
 /* ------------------------------------------------------------------------
- * Form validation message (the consent checkbox).
+ * Form validation messages.
  *
- * PennController writes into `label.error[for=__ALL_FIELDS__]` and adds
- * .Form-error-text when it does; the element exists but is empty until then,
- * so `:empty` is what keeps it out of the layout beforehand. Without such a
- * label in the HTML the runtime falls back to a native alert() — see the
- * comment beside it in chunk_includes/consent_v2.html.
+ * Two of them, and they share this rule on purpose: the consent checkbox's
+ * warning, and the age field's. They are the same kind of message — "that
+ * answer will not do, here is why" — and a participant who meets the second
+ * having already met the first should recognise it rather than read it as a
+ * different sort of event.
  *
- * It stays put once shown: a validation message the participant can miss by
- * blinking is not a validation message.
+ * The consent one is written by PennController into
+ * `label.error[for=__ALL_FIELDS__]`, which adds .Form-error-text when it does;
+ * without such a label in the HTML the runtime falls back to a native alert()
+ * — see the comment beside it in chunk_includes/consent_v2.html. The age one is
+ * a Text element main.js prints empty and fills from the failure branch of the
+ * gate on `age_val`.
+ *
+ * Both exist before there is anything to say, so `:empty` is what keeps them
+ * out of the layout until there is. And both stay put once shown: a validation
+ * message the participant can miss by blinking is not a validation message.
  * ---------------------------------------------------------------------- */
 
-label.error[for="__ALL_FIELDS__"] {
+label.error[for="__ALL_FIELDS__"],
+html .PennController-age-error {
   display: block;
   margin: 1.2em 0 0;
   padding: 0.75em 1em;
@@ -519,9 +533,11 @@ label.error[for="__ALL_FIELDS__"] {
   font-size: 0.95rem;
   font-weight: 600;
   line-height: 1.45;
+  text-align: left;
 }
 
-label.error[for="__ALL_FIELDS__"]:empty {
+label.error[for="__ALL_FIELDS__"]:empty,
+html .PennController-age-error:empty {
   display: none;
 }
 

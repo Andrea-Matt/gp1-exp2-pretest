@@ -29,34 +29,81 @@ const sessionID = (() => {
 })();
 
 // ------------------------------------------------------------
-// Payment
+// Prolific
 // ------------------------------------------------------------
-// The form a participant fills in after the last screen, to be paid. It asks
-// for the code below plus a PayPal address or a Satispay number, and it is
-// deliberately OUTSIDE this experiment: payment details are personal data and
-// must never reach the results file. Stated here once -- the QR code beside
-// the link is drawn from this line by pcibex/tools/make_payment_qr.py, so the
-// picture and the link cannot disagree.
-const PAYMENT_FORM_URL = "https://forms.gle/BkrUavGzUqxtRwt7A";
+// This study is recruited and paid through Prolific. Prolific pays the
+// participant itself, out of the reward set on the study page, so there is no
+// payment form here and no payment detail in the results -- see
+// pcibex/PROLIFIC.md.
+//
+// What replaces all of that is one URL. A submission moves from "In Progress"
+// to approved only when the participant lands on Prolific's completion URL,
+// which carries a code Prolific generates for the study; a participant who
+// never reaches it submits as NOCODE and has to be resolved by hand. The code
+// is Prolific's, not ours: it cannot be chosen, so it cannot be in this file
+// until the study exists.
+//
+// ONE STUDY PER PHASE, and that is an assumption about how recruitment is run,
+// not just a shape for this table. Every link of a phase -- whole, ?split=sm,
+// ?split=or, ?cont=off -- gets the code below, so they must all belong to the
+// SAME Prolific study. Which they do if a phase is recruited through one link
+// at a time.
+//
+// Run two Prolific studies for one phase -- a listing for ?split=sm and another
+// for ?split=or, say, because the halves are different lengths and different
+// rewards -- and every participant on the second one is handed the first one's
+// code and submits as NOCODE. Nothing here would notice: the URL is well
+// formed, the screen renders, and the two studies are indistinguishable from
+// inside the experiment. If that is ever the plan, this table has to be keyed
+// by phase AND split, like BLOCK_PLAN below, and check_contracts.mjs has to
+// require an entry per link rather than per phase.
+//
+// Keyed by phase here for the same reason BLOCK_PLAN is keyed the way it is:
+// one declaration that can be read straight through, rather than a ternary that
+// has to be evaluated in the head.
+//
+// UNSETCODE is a real-shaped placeholder and deliberately not an empty string:
+// the closing screen then renders locally exactly as it will on the farm, which
+// is what lets it be drawn and looked at. The one thing that refuses it is
+// `build.py --dist`, and it refuses the WHOLE build rather than the offending
+// phase -- `--dist --phase pretest` is how to build the one that is ready.
+// check_contracts.mjs holds the shape; DEPLOY.md says where the code comes
+// from.
+const PROLIFIC_COMPLETION = {
+    pretest: "https://app.prolific.com/submissions/complete?cc=C1MMTM9A",
+    test: "https://app.prolific.com/submissions/complete?cc=UNSETCODE"
+};
 
-// What the participant types into that form, and the only thing tying a
-// payment request to a session. The last 8 digits of sessionID: the 6 random
-// ones plus the last 2 of the timestamp.
+// Who Prolific says this is, as the study link hands it over. The parameter
+// names are the researcher's to choose on the study page; these three are the
+// ones this study passes:
 //
-// Eight rather than Exp1's six, for one reason. The code is what tells two
-// claims apart, so a collision between two sessions is not a curiosity but an
-// unresolvable case -- two people holding the same code, one payment owed, and
-// no way to tell that from one person claiming twice. Six random digits
-// collide with probability about n^2/2e6: ~2% over 200 sessions. Borrowing two
-// digits of the millisecond timestamp, which are as good as uniform across
-// participants, takes that to ~0.02% and costs one keystroke.
+//   ...?PROLIFIC_PID={{%PROLIFIC_PID%}}&STUDY_ID={{%STUDY_ID%}}&SESSION_ID={{%SESSION_ID%}}
 //
-// Not logged as its own column: it is a function of session_id, which every
-// row already carries, and a second copy of a derived value is a thing that
-// can disagree with itself. analysis/read_exp2.R re-derives it with the same
-// constant, and `npm run contracts` fails if the two numbers drift apart.
-const PAYMENT_CODE_DIGITS = 8;
-const paymentCode = sessionID.slice(-PAYMENT_CODE_DIGITS);
+// PROLIFIC_PID is the participant -- a 24-character identifier, stable across
+// studies, and the only thing Prolific support can use to find someone when a
+// submission goes wrong. SESSION_ID is the SUBMISSION, not the person: a new
+// one per submission, so it cannot link a pretest participant to a test one.
+// STUDY_ID is not logged -- with one study per phase, `phase` already says
+// which study a row came from.
+//
+// Note the collision of names, which is only a collision of names: Prolific's
+// SESSION_ID is a submission id, and this script's own `session_id` column is
+// the timestamp-plus-random id generated above. They are different things and
+// both are logged.
+//
+// The `|| "NA"` is load-bearing, and the case it covers is the ORDINARY one:
+// every local run and every check in the suite bar one opens the experiment
+// with no Prolific parameters at all. GetURLParameter returns undefined for a
+// parameter that is not there, and `.log()` of undefined does not log a blank
+// -- measured, by deleting this fallback and running one session: all 24 rows
+// came out carrying the literal string "prolific_pid", the column's own name.
+// Nothing errors, nothing is empty, and every check that asks whether a column
+// has a value is satisfied. verify.mjs asserts the exact value instead, on both
+// branches: one run per phase passes the parameters and must come back with
+// them, the rest pass none and must come back "NA".
+const PROLIFIC_PID = GetURLParameter("PROLIFIC_PID") || "NA";
+const PROLIFIC_SUBMISSION = GetURLParameter("SESSION_ID") || "NA";
 
 // ------------------------------------------------------------
 // Phase / split / speed
@@ -64,6 +111,12 @@ const paymentCode = sessionID.slice(-PAYMENT_CODE_DIGITS);
 // EXP2_PHASE comes from the generated js_includes/exp2_phase.js, loaded
 // before this file. "pretest" or "test".
 const PHASE = window.EXP2_PHASE;
+
+// This phase's completion URL, from the table above. Read once, here, so the
+// closing screen has a single name to build both its link and its visible code
+// from -- a link whose text says one code while it carries another is exactly
+// the shape of thing nobody looks at twice.
+const COMPLETION_URL = PROLIFIC_COMPLETION[PHASE];
 
 // The item table name follows the phase: pretest gets pretest_items dot csv,
 // test gets test_items dot csv, both already in chunk_includes. Built from
@@ -416,76 +469,24 @@ newTrial("welcome",
 );
 
 // ------------------------------------------------------------
-// Screening and eligibility check (kept verbatim from GP_Exp1_paid)
+// There is no screening trial, and there is no eligibility check.
 // ------------------------------------------------------------
-newTrial("screening",
-    startAtTop(),
-    newText("disclaimer",
-        "Prima di iniziare, vorremmo verificare che tu possa partecipare allo studio. " +
-        "Se non risulti idonea/o, le tue risposte verranno eliminate. " +
-        "Se risulti idonea/o, le risposte verranno conservate in modo sicuro e protetto. " +
-        "Solo il personale della ricerca potrà accedervi. " +
-        "Se sei idonea/o, potrai poi dare il tuo consenso informato alla partecipazione allo studio."
-    )
-        .css("margin-bottom", "1em")
-        .print()
-    ,
-    newText("lang-desc", "Qual è la tua lingua madre?")
-        .cssContainer({ "margin-bottom": "0.5em", "margin-top": "2em" })
-        .center()
-        .print()
-    ,
-    newScale("lang_val", "italiano", "altro")
-        .labelsPosition("bottom")
-        .settings.css("gap", "2em")
-        .center()
-        .print()
-        .wait()
-        .log()
-    ,
-    keepUpWithForm(),
-    newText("age-desc", "Quanti anni hai? (Premi 'invio' per continuare.)")
-        .cssContainer({ "margin-bottom": "0.5em", "margin-top": "2em" })
-        .center()
-        .print()
-    ,
-    newTextInput("age_val")
-        .cssContainer({ "margin-bottom": "0.5em" })
-        .center()
-        .print()
-        .wait()
-    ,
-    keepUpWithForm(),
-    newVar("lang").global().set(getScale("lang_val")),
-    newVar("age").global().set(getTextInput("age_val"))
-    ,
-    newButton("continue", "Verifica l'idoneità")
-        .settings.css("margin-top", "2em")
-        .settings.css("margin-bottom", "2em")
-        .settings.css("font-size", "1em")
-        .center()
-        .print()
-        .wait()
-);
-
-newTrial("eligibility-check",
-    startAtTop(),
-    getVar("age").test.is(v => Number(v) >= 18)
-        .and(getVar("lang").test.is("italiano"))
-        .failure(
-            newText("Purtroppo non sei idonea/o a partecipare a questo studio. " +
-                "Grazie per il tuo tempo.")
-                .center()
-                .print()
-            ,
-            newText("Puoi chiudere questa finestra.")
-                .css("margin-bottom", "1em")
-                .css("margin-top", "1em")
-                .center()
-                .print()
-                .wait()
-        )
-);
+// There were both, until this study moved to Prolific. They asked for native
+// language and age and then ended the session for anyone who failed, on a
+// screen that said "Puoi chiudere questa finestra" and waited forever.
+//
+// Prolific screens instead, with its own first-language and age prescreeners,
+// against what a participant told Prolific when they joined. So the question is
+// no longer this experiment's to ask -- and the dead end is no longer a thing it
+// may have: a participant stranded on a screen they cannot leave submits as
+// NOCODE, which costs them their payment and costs Prolific's support a ticket.
+//
+// Native language is not asked at all now; the prescreener is the only screen
+// for it, and the `lang` column is gone from the results with it (see
+// design/design.toml). Age IS still asked, in the questionnaire below, because
+// it is an analysis variable and not only an eligibility one -- and it is asked
+// the way the consent checkbox is asked, with a message beside the field and a
+// screen that will not advance, rather than with a door out of the study.
 
 // ------------------------------------------------------------
 // Consent form (IRB version -- copied from GP_Exp1_paid, only the duration
@@ -498,9 +499,11 @@ newTrial("consent",
         .checkboxWarning("È necessario dare il proprio consenso prima di procedere.")
         .print()
     ,
-    // Fills the exp2-duration span(s) the form just printed from their
-    // data-<phase>-<whole|split> attribute -- one line per link variant,
-    // all of them in one file. See exp2_dialogue.js.
+    // Fills the exp2-duration and exp2-reward spans the form just printed,
+    // from their data-<phase>-<whole|split> attributes -- one value per link
+    // variant, all of them in one file. How long the study takes and what it
+    // pays are the two numbers a participant is actually deciding on, and
+    // neither is the same on all four links. See exp2_dialogue.js.
     newFunction("fill-duration", () => {
         Exp2Dialogue.fillDuration(PHASE, SPLIT !== "whole");
         // PennController writes the consent warning into the label but never
@@ -533,8 +536,20 @@ newTrial("consent",
 );
 
 // ------------------------------------------------------------
-// Demographic questionnaire (kept verbatim from GP_Exp1_paid)
+// Demographic questionnaire
 // ------------------------------------------------------------
+// Adapted from GP_Exp1_paid, with age moved in from the screening trial this
+// study no longer has, and native language dropped entirely -- Prolific's
+// first-language prescreener is the only screen for it now.
+//
+// It runs AFTER the consent form, which is where a questionnaire belongs and
+// which is simply what deleting the screening pair leaves behind: those two
+// trials were the only reason anything was asked before consent.
+//
+// Age is gated, and the gate is the consent checkbox's gate rather than the old
+// eligibility check's: a message beside the field, and a screen that will not
+// advance until the answer is corrected. Nothing here ends a session. See the
+// note where the screening trials used to be.
 newTrial("meta",
     startAtTop(),
     defaultText
@@ -544,6 +559,78 @@ newTrial("meta",
     ,
     newText("instructions-1", "Per favore, inserisci tutti i dati richiesti qui sotto.")
     ,
+    newText("age-desc", "Quanti anni hai? (Premi 'invio' per continuare.)")
+    ,
+    newTextInput("age_val")
+        .cssContainer({ "margin-bottom": "0.5em" })
+        .center()
+        .print()
+    ,
+    // Printed empty and filled by the failure branch below. It has to exist
+    // before the wait, because the wait is what fills it. `:empty` keeps it out
+    // of the layout until there is something to say -- see global_exp2.css,
+    // where it shares its rule with the consent warning so the two cannot drift
+    // into looking like different kinds of message.
+    //
+    // No underscore in the name: PCIbex strips one when it builds the class, so
+    // an element called `age_error` is `.PennController-ageerror` and every
+    // selector naming it matches nothing, silently.
+    newText("age-error", "")
+        // Against defaultText's 2em, which is the gap BETWEEN questions. This
+        // is not a question; it is about the field directly above it, and at
+        // 2em it read as a detached notice rather than as a correction to that
+        // answer. The stylesheet supplies the 1.2em that separates them.
+        .cssContainer({ "margin-top": "0" })
+    ,
+    // Two rules in one test, for two different reasons.
+    //
+    // A whole number is data integrity: the field is free text, so before this
+    // existed "trenta", "30 anni" and an empty answer all reached the `age`
+    // column unexamined, and read_exp2.R's as.numeric() turned them into NA
+    // without anyone being asked.
+    //
+    // 18 is the eligibility rule, and it is the only one this experiment still
+    // enforces itself. Prolific's own minimum age to hold an account is 18 and
+    // the study prescreens on age as well, so a number below it here is a typo
+    // far more often than it is a fact -- which is why the message asks for a
+    // correction first and names the way out second. The way out is returning
+    // the study on Prolific, which is the participant's own button, costs them
+    // nothing, and is what Prolific asks researchers to point at instead of
+    // rejecting someone whose answers do not match their prescreening.
+    //
+    // The upper bound is 119 and is there only to keep a slip of the hand out
+    // of the data.
+    getTextInput("age_val").wait(
+        getTextInput("age_val").test.text(/^\s*(1[89]|[2-9]\d|1[01]\d)\s*$/)
+            .failure(getText("age-error").text(
+                "Controlla la risposta: inserisci la tua età in anni, come " +
+                "numero intero (per esempio 24). Per partecipare a questo " +
+                "studio devi avere almeno 18 anni: se ne hai meno, chiudi " +
+                "questa scheda e restituisci lo studio su Prolific, con il " +
+                "pulsante \u201cReturn\u201d \u2014 non ti verrà addebitato nulla e il tuo " +
+                "account non verrà penalizzato."))
+    ),
+    // PennController leaves a warning where it wrote it, so an answer that is
+    // now fine would sit under a message saying it is not. The consent trial
+    // solves the same problem with a listener; here the wait has already
+    // returned, so clearing it is one command.
+    getText("age-error").text(""),
+    // Read HERE, and not with the other four at the end of the trial.
+    //
+    // The gate tests the field at the moment Enter is pressed; the field stays
+    // on screen and editable for the rest of the questionnaire, which is four
+    // more questions. A var set at the end reads whatever is in the box then --
+    // so an answer edited, or blanked, after it passed would be logged ungated,
+    // and the column would say something the gate never saw. Setting it as the
+    // wait returns captures exactly the value that passed.
+    //
+    // The other four are scales and an ungated free-text field, so none of them
+    // makes a claim this could break.
+    newVar("age")
+        .global()
+        .set(getTextInput("age_val"))
+    ,
+    keepUpWithForm(),
     newText("In che genere ti identifichi?")
         .print()
     ,
@@ -926,6 +1013,12 @@ Template(
             // verify.mjs counts judgment trials by it. `training_item` is the
             // mirror image, empty on every judgment row.
             .log("session_id", sessionID)
+            // Prolific's own two, straight off the study link. See the
+            // block at the top of this file: PROLIFIC_PID is the person,
+            // prolific_submission is ONE submission, and neither is the
+            // `session_id` above it, which this script generates itself.
+            .log("prolific_pid", PROLIFIC_PID)
+            .log("prolific_submission", PROLIFIC_SUBMISSION)
             .log("phase", PHASE)
             .log("split", SPLIT)
             .log("continuations", CONTINUATIONS)
@@ -1408,6 +1501,12 @@ Template(
             //
             // Session and order
             .log("session_id", sessionID)
+            // Prolific's own two, straight off the study link. See the
+            // block at the top of this file: PROLIFIC_PID is the person,
+            // prolific_submission is ONE submission, and neither is the
+            // `session_id` above it, which this script generates itself.
+            .log("prolific_pid", PROLIFIC_PID)
+            .log("prolific_submission", PROLIFIC_SUBMISSION)
             .log("phase", PHASE)
             .log("split", SPLIT)
             .log("continuations", CONTINUATIONS)
@@ -1472,7 +1571,6 @@ Template(
             .log("age", getVar("age"))
             .log("gender", getVar("gender"))
             .log("handed", getVar("handed"))
-            .log("lang", getVar("lang"))
             .log("caff", getVar("caff"))
             .log("study", getVar("study"));
     }
@@ -1497,8 +1595,6 @@ Sequence(
     "counter",
     "preload",
     "welcome",
-    "screening",
-    "eligibility-check",
     "consent",
     "meta",
     "instructions1",
@@ -1507,23 +1603,55 @@ Sequence(
     "beginning",
     ...judgmentSequence,
     "send",
-    "end",
-    "payment",
     "goodbye"
 );
 
 // ------------------------------------------------------------
-// Send results and closing screen
+// Send results
 // ------------------------------------------------------------
+// Strictly before the completion link below. Everything after this happens with
+// the data already uploaded, so a participant who closes the window on the last
+// screen has still been recorded -- and, on Prolific, a submission that reaches
+// the completion URL has data by construction, which is what makes approving
+// automatically safe. A completion link moved above this would send people to
+// Prolific with their session still in the browser.
 newTrial("send",
     startAtTop(),
     SendResults()
 );
 
-// `end` comes after SendResults(), so everything below it happens with the
-// data already uploaded: a participant who closes the window on the payment
-// screen has still been recorded, and is still owed the money.
-newTrial("end",
+// ------------------------------------------------------------
+// The last screen
+// ------------------------------------------------------------
+// Under Prolific this screen is not decoration: it is where a participant gets
+// paid. A submission stays "In Progress" until they land on Prolific's
+// completion URL; one who closes the tab here instead submits as NOCODE, which
+// Prolific's researcher has to resolve by hand and which the participant has no
+// way of knowing about.
+//
+// So this is the ONLY screen after `send`, and `send` is what puts the data up.
+// There used to be three -- a thank-you, a payment form with a QR code, and a
+// sign-off -- because the payment form was a second errand, on a second device
+// as often as not. There is no errand now, and every screen between finishing
+// and this link is somewhere to lose someone.
+//
+// Two ways to the same place, for the same reason the payment screen had two:
+// the link, and the code in plain text. A participant whose click does not land
+// -- a blocked pop-up, a link opened and lost, a tab restored without it -- can
+// still type the code into Prolific's own "complete study" box. Both are built
+// from COMPLETION_URL, so they cannot come apart; check_contracts.mjs holds
+// exactly that.
+//
+// And no automatic redirect, deliberately. It would fire under
+// `run.mjs --start-at goodbye` too, navigating a headless check onto Prolific's
+// servers, which makes the one element on this path whose failure costs a
+// participant their payment the one element no check could draw. PCIbex's own
+// Prolific guide uses a link.
+//
+// It ends on an unprinted wait(), and it is allowed to: this is the last screen
+// and there is nowhere to hand anyone on to. Everything above it has to hand
+// on, and check_contracts.mjs asserts that only this one does not.
+newTrial("goodbye",
     startAtTop(),
     newText("L'esperimento è terminato.")
         .css("font-size", "1.6em")
@@ -1531,105 +1659,39 @@ newTrial("end",
         .center()
         .print(),
 
-    newText("Ora puoi procedere a richiedere il compenso.")
+    newText("Grazie per aver partecipato!")
         .css("font-size", "1.2em")
         .css("margin-top", "1em")
         .center()
         .print(),
 
-    newButton("pay", "Richiedi il compenso")
-        .css("margin-top", "2em")
-        .css("margin-bottom", "2em")
-        .css("font-size", "1em")
+    newText("goodbye-instruction",
+        "Manca un ultimo passaggio: clicca sul link qui sotto per confermare " +
+        "la tua partecipazione su Prolific. Senza questo passaggio la tua " +
+        "sessione resta aperta e il compenso non ti viene accreditato.")
+        .css("margin-top", "1.5em")
         .center()
-        .print()
-        .wait()
-);
+        .print(),
 
-// ------------------------------------------------------------
-// Payment instructions (IRB version)
-// ------------------------------------------------------------
-// The consent form promises this screen by name -- "un modulo a parte dopo la
-// schermata 'Fine dell'esperimento'" -- so it is not optional decoration.
-//
-// The link and the QR code are two ways to the same URL, because the form is
-// filled in on a phone as often as in the tab the experiment is running in,
-// and the last thing a finished participant should have to do is retype a
-// shortened URL. The QR is generated FROM the constant beside that link (see
-// make_payment_qr.py), not drawn by hand, so the two cannot come apart.
-//
-// The code below is the whole of the audit trail: the form asks for it, the
-// results carry the session_id it is the tail of, and matching them is what
-// says a claim belongs to a session that actually finished. Displayed large
-// and on its own line because it is typed into another window, often on
-// another device.
-newTrial("payment",
-    startAtTop(),
-    defaultText
-        .cssContainer({ "margin-top": "1em", "margin-bottom": "1em" })
+    newText("goodbye-link",
+        `<a href="${COMPLETION_URL}" rel="noopener">${COMPLETION_URL}</a>`)
+        .css("font-size", "1.2em")
+        .css("margin-top", "1.5em")
         .center()
-        .print()
-    ,
-    newText("payment-1",
-        "Affinché tu possa ricevere il compenso per quest'esperimento, dobbiamo raccogliere delle informazioni con un modulo a parte. " +
-        "Clicca sul link o inquadra il codice QR qui sotto per compilare il modulo per il compenso. Il link aprirà una nuova finestra.")
-    ,
-    newText("payment-2", `<a href="${PAYMENT_FORM_URL}" target="_blank" rel="noopener">${PAYMENT_FORM_URL}</a>`)
-        .css("font-size", "1.3em")
-    ,
-    newImage("payment-qr", "payment_qr.png")
-        .size(200, 200)
+        .print(),
+
+    newText("goodbye-fallback",
+        "Se il link non funziona, torna su Prolific e inserisci questo codice:")
+        .css("margin-top", "1.5em")
+        .css("font-size", "0.95em")
         .center()
-        .print()
-    ,
-    newText("payment-3",
-        "Per favore, inserisci il seguente codice quando richiesto dal modulo per il pagamento:")
-    ,
-    newText("payment-code", paymentCode)
+        .print(),
+
+    // The tail of the URL, read off the constant rather than written out again.
+    newText("goodbye-code", COMPLETION_URL.split("cc=")[1])
         .css("font-size", "2em")
         .css("font-weight", "bold")
         .css("letter-spacing", "0.12em")
-    ,
-    newText("payment-4",
-        "Il codice serve solo a verificare che tu abbia completato l'esperimento, e non è collegato alle tue risposte.")
-        .css("font-size", "0.9em")
-    ,
-    // The participant's own signal that they are finished with the form. The
-    // screen used to end on an unprinted, never-clicked wait(), which left the
-    // last thing they saw indistinguishable from a page that had stalled --
-    // with a code on it they had just been asked to copy elsewhere, so "is it
-    // safe to leave now?" was a real question with no answer on screen.
-    //
-    // Nothing depends on it being pressed: the results went up at `send`, three
-    // trials ago. It buys the acknowledgement on "goodbye" and nothing else,
-    // which is why it can sit after a link that opens another tab.
-    newButton("done", "Fatto")
-        .css("margin-top", "1.5em")
-        .css("font-size", "1em")
-        .center()
-        .print()
-        .wait()
-);
-
-// ------------------------------------------------------------
-// The last screen
-// ------------------------------------------------------------
-// Deliberately a sentence and not a "Chiudi" button. `window.close()` is only
-// honoured for a window script opened itself; in the ordinary case -- a tab the
-// participant opened from a recruitment link -- it is ignored with nothing
-// visible happening, so the button would read as broken exactly where the
-// experiment is trying to say that everything worked.
-newTrial("goodbye",
-    startAtTop(),
-    newText("Grazie per aver partecipato!")
-        .css("font-size", "1.6em")
-        .css("font-weight", "bold")
-        .center()
-        .print(),
-
-    newText("Ora puoi chiudere questa finestra.")
-        .css("font-size", "1.2em")
-        .css("margin-top", "1em")
         .center()
         .print(),
 
