@@ -56,6 +56,23 @@
   // spend real seconds here.
   var PREROLL_MS = 500;
 
+  // Whether this platform makes audio conditional on a user gesture.
+  //
+  // iOS -- which is every browser on an iPad, not only Safari -- refuses
+  // HTMLMediaElement.play() unless the call is in the task of a user gesture,
+  // per element, until that element has played once that way. PREROLL_MS moves
+  // the real play() out of that task by construction, so on a tablet the first
+  // press of every trial would be refused, silently: no sound, no words, the
+  // watchdog hands the button back, and the participant presses forever with
+  // the continue button gated behind a stage that never finishes.
+  //
+  // Gated on touch rather than on a user-agent string. It is the right question
+  // -- the rule belongs to touch platforms -- and it leaves the desktop path
+  // that a live study is currently recruiting on untouched. A touchscreen
+  // laptop takes the unlock too, which costs it nothing.
+  var NEEDS_GESTURE_UNLOCK = !!(global.navigator &&
+    (global.navigator.maxTouchPoints > 0 || 'ontouchstart' in global));
+
   // How long playback may make no progress before the stage stops believing in
   // it. Wall-clock, and generous: the stimuli are preloaded before the trial,
   // so five seconds of a recording not advancing is not a slow connection, it
@@ -427,6 +444,24 @@
     if (audioUrl) audio.src = audioUrl;
     audio.preload = 'auto';
 
+    // Per stage, because the stage builds its own element per trial and iOS
+    // grants the permission per element. Started and stopped in the same tick:
+    // what unlocks the element is that play() was CALLED during the gesture,
+    // not that anything was heard.
+    var audioUnlocked = false;
+    function unlockAudio() {
+      if (audioUnlocked || !NEEDS_GESTURE_UNLOCK) return;
+      audioUnlocked = true;
+      try {
+        var p = audio.play();
+        // pause() in the same tick rejects that promise with AbortError, which
+        // is expected and not a failure of anything.
+        if (p && typeof p.catch === 'function') p.catch(function () { /* ignore */ });
+        try { audio.pause(); } catch (e) { /* ignore */ }
+        try { audio.currentTime = 0; } catch (e) { /* ignore */ }
+      } catch (e) { /* ignore */ }
+    }
+
     if (!motionReduced) {
       qWords = layoutWords(question, qStart, qEnd);
       aWords = layoutWords(answer, aStart, aEnd);
@@ -745,6 +780,15 @@
         prerollTimer = null;
         beginPlayback();
       }, PREROLL_MS / currentSpeed());
+      // AFTER prerollTimer is set, and that ordering is the whole safety
+      // argument. Starting the element here fires `playing` and `timeupdate`,
+      // which are what arm the end timer -- arming it now would stop the turn
+      // PREROLL_MS early and take the last word off the second devil, which is
+      // the bug that shipped in September. refreshEndTimer() already returns
+      // on a pending prerollTimer, and on `audio.paused`, so with the timer in
+      // place the unlock cannot arm anything. Still inside the gesture's task:
+      // setTimeout schedules, it does not yield.
+      unlockAudio();
     });
 
     // Resolves when the *first* listen finishes, which is when the rating
