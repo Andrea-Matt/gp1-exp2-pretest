@@ -73,6 +73,26 @@
   var NEEDS_GESTURE_UNLOCK = !!(global.navigator &&
     (global.navigator.maxTouchPoints > 0 || 'ontouchstart' in global));
 
+  // How much of the page has to be below the fold before the cue claims there
+  // is more to read.
+  //
+  // It was 24px, which asks "can this page scroll" when the question is "is
+  // there something here you cannot see". On a tablet those come apart: iOS
+  // sizes the layout viewport to the window with its toolbar COLLAPSED, and at
+  // load the toolbar is expanded — so a screen whose content fits exactly is
+  // still scrollable, by the height of the toolbar, and the cue came on with
+  // nothing under it. It went away at the first touch of a scroll, which is
+  // the toolbar collapsing rather than anything being read. Reported from an
+  // iPad on 2026-09-15; no emulator shows it, because none of them has a
+  // toolbar that gets out of the way.
+  //
+  // 120 clears that band (an iPad's toolbar is 60-95px once the page's 980px
+  // canvas is scaled to the screen) and is far below every screen that really
+  // does continue: the welcome screen overflows by 1675px, the consent form by
+  // 333px, a judgment trial by 279px. check_layout.mjs reads this number out of
+  // this file rather than keeping its own copy.
+  var SCROLL_CUE_MIN_PX = 120;
+
   // How long playback may make no progress before the stage stops believing in
   // it. Wall-clock, and generous: the stimuli are preloaded before the trial,
   // so five seconds of a recording not advancing is not a slow connection, it
@@ -1140,7 +1160,7 @@
         raf = null;
         var doc = document.documentElement;
         var remaining = doc.scrollHeight - (global.innerHeight + (global.scrollY || doc.scrollTop || 0));
-        cue.classList.toggle('exp2-scroll-cue--on', remaining > 24);
+        cue.classList.toggle('exp2-scroll-cue--on', remaining > SCROLL_CUE_MIN_PX);
       }
       function schedule() {
         if (raf == null) raf = global.requestAnimationFrame(update);
