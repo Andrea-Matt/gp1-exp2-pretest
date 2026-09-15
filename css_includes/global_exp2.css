@@ -518,6 +518,16 @@ html p.progress-text {
  * Both exist before there is anything to say, so `:empty` is what keeps them
  * out of the layout until there is. And both stay put once shown: a validation
  * message the participant can miss by blinking is not a validation message.
+ *
+ * `!important` on that `display: none`, and it is load-bearing. PennController
+ * prints a Text element as a <span> carrying an inline
+ * `style="display: inline-block"`, and an inline style beats any author rule
+ * however specific — so the `:empty` rule was dead from the day it was written
+ * and an empty red box sat in the questionnaire from the moment the screen
+ * opened, through every question after it. Measured in Chromium: without the
+ * `!important` the empty span is a 35x25 box with the border and the pink
+ * ground; with it, no box at all. `check_agegate.mjs` is what holds this now —
+ * check_contracts.mjs can see the rule but not that it wins.
  * ---------------------------------------------------------------------- */
 
 label.error[for="__ALL_FIELDS__"],
@@ -538,7 +548,7 @@ html .PennController-age-error {
 
 label.error[for="__ALL_FIELDS__"]:empty,
 html .PennController-age-error:empty {
-  display: none;
+  display: none !important;
 }
 
 /* ------------------------------------------------------------------------

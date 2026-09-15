@@ -550,6 +550,13 @@ newTrial("consent",
 // eligibility check's: a message beside the field, and a screen that will not
 // advance until the answer is corrected. Nothing here ends a session. See the
 // note where the screening trials used to be.
+// The rule and the message, in one place, because the field is gated TWICE --
+// on Enter and again on "Avanti" -- and two gates that disagree about what is
+// acceptable, or say different things about it, are worse than one.
+const AGE_OK = /^\s*(1[89]|[2-9]\d|1[01]\d)\s*$/;
+const AGE_MESSAGE = "Inserisci la tua età in cifre. Per partecipare devi avere " +
+    "almeno 18 anni.";
+
 newTrial("meta",
     startAtTop(),
     defaultText
@@ -592,37 +599,31 @@ newTrial("meta",
     // 18 is the eligibility rule, and it is the only one this experiment still
     // enforces itself. Prolific's own minimum age to hold an account is 18 and
     // the study prescreens on age as well, so a number below it here is a typo
-    // far more often than it is a fact -- which is why the message asks for a
-    // correction first and names the way out second. The way out is returning
-    // the study on Prolific, which is the participant's own button, costs them
-    // nothing, and is what Prolific asks researchers to point at instead of
-    // rejecting someone whose answers do not match their prescreening.
+    // far more often than it is a fact. The message says what to type and what
+    // the rule is, and stops there: it is a correction, not a door out of the
+    // study, and nothing here may end a session.
     //
     // The upper bound is 119 and is there only to keep a slip of the hand out
     // of the data.
     getTextInput("age_val").wait(
-        getTextInput("age_val").test.text(/^\s*(1[89]|[2-9]\d|1[01]\d)\s*$/)
-            .failure(getText("age-error").text(
-                "Controlla la risposta: inserisci la tua età in anni, come " +
-                "numero intero (per esempio 24). Per partecipare a questo " +
-                "studio devi avere almeno 18 anni: se ne hai meno, chiudi " +
-                "questa scheda e restituisci lo studio su Prolific, con il " +
-                "pulsante \u201cReturn\u201d \u2014 non ti verrà addebitato nulla e il tuo " +
-                "account non verrà penalizzato."))
+        getTextInput("age_val").test.text(AGE_OK)
+            .failure(getText("age-error").text(AGE_MESSAGE))
     ),
     // PennController leaves a warning where it wrote it, so an answer that is
     // now fine would sit under a message saying it is not. The consent trial
     // solves the same problem with a listener; here the wait has already
     // returned, so clearing it is one command.
     getText("age-error").text(""),
-    // Read HERE, and not with the other four at the end of the trial.
+    // Read HERE, as the wait returns, and read again after the button gate at
+    // the end of the trial.
     //
-    // The gate tests the field at the moment Enter is pressed; the field stays
-    // on screen and editable for the rest of the questionnaire, which is four
-    // more questions. A var set at the end reads whatever is in the box then --
-    // so an answer edited, or blanked, after it passed would be logged ungated,
-    // and the column would say something the gate never saw. Setting it as the
-    // wait returns captures exactly the value that passed.
+    // Each gate tests the field at one moment, and the field stays on screen and
+    // editable between them. This read captures exactly what passed the Enter
+    // gate; the one at the bottom captures what passed the button, which is the
+    // value the participant left in the box. Without a read here, an answer
+    // blanked and retyped would have to be trusted to the second gate alone;
+    // without the second read, a correction made after this line would be
+    // invisible in the data.
     //
     // The other four are scales and an ungated free-text field, so none of them
     // makes a claim this could break.
@@ -689,13 +690,36 @@ newTrial("meta",
         .global()
         .set(getScale("caff_val"))
     ,
+    // The same gate again, on the way out, and it is not a belt-and-braces
+    // repetition: the Enter gate is a gate on a MOMENT, not on an answer. The
+    // field stays on screen and editable for the four questions that follow,
+    // so "18", Enter, then 8 left the screen advancing on a value that was no
+    // longer in the box -- measured, and the `age` column then said 18, which
+    // was true of nothing. Same rule and same words as the gate above, from
+    // AGE_OK and AGE_MESSAGE, so the two cannot drift apart.
+    //
+    // This is still not a door out: the button simply does not advance, exactly
+    // as the consent form's does not until the box is ticked.
     newButton("continue", "Avanti")
         .settings.css("margin-top", "2em")
         .settings.css("margin-bottom", "2em")
         .settings.css("font-size", "1em")
         .center()
         .print()
-        .wait()
+        .wait(
+            getTextInput("age_val").test.text(AGE_OK)
+                .failure(getText("age-error").text(AGE_MESSAGE))
+        )
+    ,
+    // PennController leaves a message where it wrote it, so the same clear as
+    // after the first gate -- otherwise a corrected answer leaves the screen
+    // with the correction still on it.
+    getText("age-error").text(""),
+    // And read the field once more. The early read caught the value that passed
+    // the Enter gate; this one catches the value the participant actually left
+    // in the box, which the button has just gated too. Both are gated values,
+    // and this is the later of the two.
+    getVar("age").set(getTextInput("age_val"))
 );
 
 // ------------------------------------------------------------
@@ -1666,9 +1690,9 @@ newTrial("goodbye",
         .print(),
 
     newText("goodbye-instruction",
-        "Manca un ultimo passaggio: clicca sul link qui sotto per confermare " +
-        "la tua partecipazione su Prolific. Senza questo passaggio la tua " +
-        "sessione resta aperta e il compenso non ti viene accreditato.")
+        "Clicca sul link qui sotto per confermare la tua partecipazione su " +
+        "Prolific. Senza questo passaggio la tua sessione resta aperta e il " +
+        "compenso non ti viene accreditato.")
         .css("margin-top", "1.5em")
         .center()
         .print(),
@@ -1680,8 +1704,11 @@ newTrial("goodbye",
         .center()
         .print(),
 
+    // "Altrimenti", not "se il link non funziona": typing the code into
+    // Prolific's own box is a way of completing the study, not the repair of a
+    // broken one, and a fallback offered as a fault reads like one.
     newText("goodbye-fallback",
-        "Se il link non funziona, torna su Prolific e inserisci questo codice:")
+        "Altrimenti, torna su Prolific e inserisci questo codice:")
         .css("margin-top", "1.5em")
         .css("font-size", "0.95em")
         .center()
