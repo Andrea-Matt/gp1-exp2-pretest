@@ -5,11 +5,12 @@
 // One entry per screen, one string per paragraph, in order.
 window.EXP2_TRAINING_FRAME = {
   "closing": [
-    "Gli esempi sono finiti. Ora inizia l'esperimento vero e proprio.",
-    "Alcune risposte ti sembreranno chiaramente accettabili o inaccettabili, ma per altre potresti voler dare una valutazione intermedia. Usa pure tutto l'intervallo del cursore, non solo i due estremi.",
-    "Se sei in dubbio, può sempre esserti utile rileggere il contesto prima di riascoltare."
+    "I dialoghi di prova sono finiti. Ora inizia l'esperimento vero e proprio: da qui in poi non riceverai più indicazioni su come valutare le risposte.",
+    "Alcune risposte ti sembreranno chiaramente accettabili o inaccettabili, ma per altre potresti voler dare una valutazione intermedia. Usa pure tutto l'intervallo del cursore, non solo i due estremi."
   ],
   "opening": [
-    "Prima di cominciare, facciamo qualche prova insieme. Puoi ascoltare ogni dialogo al massimo due volte."
+    "Prima di cominciare l'esperimento vero e proprio, farai <b>6 dialoghi di prova</b>. Servono solo a farti prendere confidenza con il compito: le risposte che darai in questa fase non fanno parte dell'esperimento.",
+    "Dopo aver ascoltato ogni dialogo di prova, un riquadro ti spiegherà come valutare la risposta. Leggilo con attenzione prima di usare il cursore.",
+    "Puoi ascoltare ogni dialogo al massimo due volte."
   ]
 };

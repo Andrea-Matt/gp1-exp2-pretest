@@ -625,8 +625,8 @@ newTrial("meta",
     // without the second read, a correction made after this line would be
     // invisible in the data.
     //
-    // The other four are scales and an ungated free-text field, so none of them
-    // makes a claim this could break.
+    // The other three are scales, so none of them makes a claim this could
+    // break.
     newVar("age")
         .global()
         .set(getTextInput("age_val"))
@@ -654,14 +654,10 @@ newTrial("meta",
         .wait()
         .log()
     ,
-    keepUpWithForm(),
-    newText("study-desc", "Se sei una/o studente, qual è la tua area di studio? (Premi 'invio' per continuare)")
-    ,
-    newTextInput("study_val")
-        .center()
-        .print()
-        .wait()
-    ,
+    // There used to be a free-text question here asking students for their
+    // field of study. It went when recruitment moved to Prolific, whose pool is
+    // mostly not students, and the `study` column went with it -- see
+    // design/design.toml.
     keepUpWithForm(),
     newText("caff-desc", "Hai assunto della caffeina oggi?")
     ,
@@ -682,17 +678,13 @@ newTrial("meta",
         .global()
         .set(getScale("handed_val"))
     ,
-    newVar("study")
-        .global()
-        .set(getTextInput("study_val"))
-    ,
     newVar("caff")
         .global()
         .set(getScale("caff_val"))
     ,
     // The same gate again, on the way out, and it is not a belt-and-braces
     // repetition: the Enter gate is a gate on a MOMENT, not on an answer. The
-    // field stays on screen and editable for the four questions that follow,
+    // field stays on screen and editable for the three questions that follow,
     // so "18", Enter, then 8 left the screen advancing on a value that was no
     // longer in the box -- measured, and the `age` column then said 18, which
     // was true of nothing. Same rule and same words as the gate above, from
@@ -744,19 +736,23 @@ newTrial("instructions1",
     ),
 
     newText("speech",
-        // Exp1's framing, kept word for word apart from the two sentences that
-        // have to change because Exp2 is heard rather than read.
-        "In questo contesto, due spiritelli danno delle ricompense ai bambini a seconda di quello che fanno. " +
-        "Una volta stabilito come assegnare la ricompensa, gli spiritelli si fanno una domanda su cosa sia successo. " +
-        "Nel corso dell'esperimento, li sentirai dialogare " +
-        "e rispondere alle domande l'uno dell'altro. " +
-        "Tuttavia, le risposte che si danno sono talvolta incoerenti, oppure non sembrano rispondere veramente alla domanda fatta. " +
+        // Rewritten on 2026-09-19. Exp1's framing had the two devils handing
+        // out rewards to the children, and the items a request saying what a
+        // child would be rewarded for; it confused more than it explained, and
+        // it said nothing about intonation, which is half of what the pretest
+        // asks about. The devils now have fixed roles -- red asks, blue answers
+        // -- and the request says what would make the red one happy.
+        "In questo esperimento, sentirai due spiritelli parlare di quello che fanno i bambini. " +
+        "Lo spiritello rosso (a sinistra) fa delle domande sulla base di quello che lo renderebbe contento, " +
+        "e lo spiritello blu (a destra) prova a dare delle risposte. " +
+        "Tuttavia, lo spiritello blu non è molto bravo a parlare, e le risposte che si dà sono talvolta incoerenti, " +
+        "non rispondono veramente alla domanda fatta, oppure sono pronunciate con un'intonazione che ha poco senso. " +
         "<b>Il tuo compito sarà quello di penalizzare le risposte che non ti suonano accettabili rispetto alla domanda.</b> " +
         "Per farlo, userai un cursore che potrai muovere liberamente tra \"per nulla accettabile\" (estremo sinistro) e \"totalmente accettabile\" (estremo destro)."
     ),
 
     newText("logic",
-        "Nota bene: il tuo compito è di valutare le risposte in relazione alle domande, e non le domande in sé. " +
+        "Nota bene: il tuo compito è di valutare le risposte dello spiritello blu, e non le domande dello spiritello rosso. " +
         "Ascolta con attenzione e cerca di seguire il tuo intuito per decidere se la risposta che senti suona adeguata rispetto alla domanda oppure no."
     ),
 
@@ -777,7 +773,7 @@ newTrial("instructions1",
 // They are gone, replaced by the training block below, which teaches the same
 // things with the real thing: a recording the participant listens to and rates
 // on the real slider, then a comment. A written mock could not do the half of
-// it that matters here -- four of the eight training items turn on PROSODY,
+// it that matters here -- four of the six training items turn on PROSODY,
 // and two pairs of them are the same answer heard against different questions,
 // which on the page is simply the same sentence twice.
 //
@@ -807,8 +803,17 @@ const frameParagraphs = (slot) =>
             .print()
     );
 
+// The opening screen carries a title, where no other framing screen does: it is
+// the one place a participant has to register that what follows is practice and
+// not the experiment, and a heading is read where a first sentence is skimmed.
+// Same size and weight as the break screens' "Pausa".
 newTrial("training-intro",
     startAtTop(),
+    newText("training-title", "Dialoghi di prova")
+        .css("font-size", "1.6em")
+        .css("font-weight", "bold")
+        .center()
+        .print(),
     ...frameParagraphs("opening"),
     newButton("continue", "Avanti")
         .css("margin-top", "2em")
@@ -820,7 +825,7 @@ newTrial("training-intro",
 );
 
 // ------------------------------------------------------------
-// Training: the 8 items in chunk_includes/training_items.csv, in table order.
+// Training: the 6 items in chunk_includes/training_items.csv, in table order.
 //
 // Same dialogue + slider + continue machinery as a judgment trial, so a
 // participant meets the real task before any of it counts, and each item is
@@ -831,12 +836,13 @@ newTrial("training-intro",
 //   * It deliberately does not .log() condition/subexp/num. pcibex/tools/
 //     verify.mjs counts judgment trials by a populated `condition`, so a
 //     training trial that logged one would be counted as data.
-//   * The table is phase-independent — the same 8 rows are written into both
+//   * The table is phase-independent — the same 6 rows are written into both
 //     phases' chunk_includes by prepare_stimuli.py — so it is NOT filtered by
-//     split and carries no `group`: every participant does all 8, in order.
+//     split and carries no `group`: every participant does all 6, in order.
 //   * Order is the table's, not randomized. The items build on each other
-//     (ignorance, then two prosody contrasts, then marked questions), and
-//     `num` in data/training_items.tsv is what sets it.
+//     (ignorance, then two prosody contrasts), and `num` in
+//     data/training_items.tsv is what sets it. There were 8 until 2026-09-19;
+//     the last pair, on marked questions, was dropped.
 // ------------------------------------------------------------
 const TRAINING_TABLE = "training_items" + ".csv";
 
@@ -845,6 +851,55 @@ const TRAINING_TABLE = "training_items" + ".csv";
 // sharing one would make a judgment trial's index depend on how the training
 // went.
 let trainingIndex = 0;
+
+// How many training trials there are, counted as the Template below builds
+// them -- which happens when this script is evaluated, so by the time any
+// training trial RUNS it is final. It is what the "x/6" on each trial's counter
+// is read from, rather than a 6 written into this file: the table is the one
+// place that says how many items there are.
+let trainingTotal = 0;
+
+// The one check the training block makes on an answer.
+//
+// Each training item's comment says which end of the scale it belongs at, and
+// `label` in the table records which one that is. On the first "Avanti" whose
+// slider is on the wrong side of the scale -- or exactly on its midpoint, which
+// is neither side -- the trial does not advance and TRAINING_WARNING appears.
+// The second "Avanti" advances whatever the slider says: this is a nudge to
+// read the instructions again, not a gate a participant can get stuck behind,
+// and nothing in this experiment may end or stall a session.
+//
+// Strict inequalities against the midpoint of the 0-100 scale, so 50 counts as
+// wrong in both directions and 51 / 49 as right. Whether the warning was shown
+// is logged as `training_warned`; the final rating is logged as always.
+const TRAINING_MIDPOINT = 50;
+const TRAINING_WARNING = "Per favore, rileggi le istruzioni.";
+// How long the warning has to have been on screen before an "Avanti" goes
+// through. Without it a double-click passes the gate in one gesture -- its
+// first click is refused and its second, a tenth of a second later, is "the
+// second Avanti" -- and the message is never read. A click inside the window is
+// refused again, which changes nothing on screen.
+const TRAINING_WARNING_MIN_MS = 600;
+
+// true when the slider sits on the side of the scale `label` says, and also
+// when there is nothing to judge (no slider found, a label that is neither
+// value) -- an answer this cannot read is never a reason to hold a
+// participant back.
+// Where the training trial's "Avanti" is in the window, or null.
+function trainingButtonTop() {
+    const b = document.querySelector(".PennController-continue");
+    return b ? b.getBoundingClientRect().top : null;
+}
+
+function trainingAnswerOnRightSide(label) {
+    const input = document.querySelector(
+        ".PennController-rating-container input[type=range]");
+    if (!input) return true;
+    const v = Number(input.value);
+    if (label === "good") return v > TRAINING_MIDPOINT;
+    if (label === "bad") return v < TRAINING_MIDPOINT;
+    return true;
+}
 
 Template(
     GetTable(TRAINING_TABLE),
@@ -862,13 +917,35 @@ Template(
         let itemStart = 0;
         let sliderWatch = null;
         let focusWatch = null;
+        // Whether this trial has already shown TRAINING_WARNING. Set by the
+        // failure branch of the "Avanti" gate below, and read by the test in
+        // it, so the test itself changes nothing: PennController may evaluate
+        // a test more than once per click, and a test that flipped this as a
+        // side effect could let the FIRST wrong click through.
+        let warned = false;
+        // When the warning went up, on Exp2Dialogue's clock.
+        let warnedAt = null;
+        // The button's position on screen just before the warning goes in above
+        // it; see training-mark-warned.
+        let buttonTop = null;
+        const position = ++trainingTotal;
 
         return newTrial("training",
             startAtTop(),
             ...clearResponseVars(),
-            // Order on screen: intro, context, request, dialogue — and then,
-            // only once the recording has played through, the prompt, the
-            // comment on the item and the slider.
+            // "Dialogo di prova x/6", above everything else on the screen, so
+            // no training item can be mistaken for a trial that counts. Filled
+            // in rather than printed with its text, because the total is only
+            // known once every row has been built -- see trainingTotal.
+            newText("training-counter", "").center().print(),
+            newFunction("training-counter-fill", () => {
+                const el = document.querySelector(".PennController-training-counter");
+                if (el) el.textContent = `Dialogo di prova ${position}/${trainingTotal}`;
+            }).call(),
+            // Order on screen: counter, intro, context, request, dialogue —
+            // and then, only once the recording has played through, the
+            // prompt, the comment on the item, the slider, the (empty) warning
+            // and the button.
             //
             // That reveal is not wired here. Everything printed AFTER the stage
             // element is hidden by the stylesheet until the stage carries
@@ -943,11 +1020,17 @@ Template(
 
             // Above the slider, not below it: it ends by saying which way to
             // move the cursor, which is no use underneath the cursor.
-            newText("training-feedback", row.feedback)
-                .css("margin-bottom", "2em")
-                .css("padding", "0.75em 1em")
-                .css("border-left", "3px solid var(--exp2-line-strong)")
-                .css("text-align", "left")
+            //
+            // This is the sentence the whole training trial exists to deliver,
+            // so it is a box that cannot be read past: amber, heavy-bordered,
+            // under a heading of its own. All of its look is in
+            // global_exp2.css (`.PennController-training-feedback`) and none of
+            // it here, because a .css() here is an inline style and would beat
+            // the stylesheet. TRAINING_WARNING sends the participant back to
+            // this box, and the heading is what lets them find it.
+            newText("training-feedback",
+                '<span class="exp2-callout-title">Come valutare questa risposta</span>' +
+                row.feedback)
                 .print(),
 
             newScale("rating", 101)
@@ -970,6 +1053,22 @@ Template(
                 });
             }).call(),
 
+            // Printed empty, between the slider and the button, and filled only
+            // by the gate's failure branch -- so it appears directly above the
+            // "Avanti" that was just refused. Empty, it takes no space at all
+            // (`:empty`, with !important, in global_exp2.css -- the rule the age
+            // message taught), and it shares its look with the consent and age
+            // messages.
+            //
+            // Appearing above the button pushes the button down by the
+            // message's height at the instant of the click, and the second
+            // click -- the one that is supposed to go through -- would then land
+            // on the message. So the failure branch notes where the button is
+            // on screen before the text goes in, and scrolls the page by however
+            // far it moved: the button stays under the pointer and the page
+            // above it rises to make room. See trainingButtonTop.
+            newText("training-warning", "").center().print(),
+
             newButton("continue", "Avanti")
                 // Tight against the slider: on the rating trials the two are one
                 // action, and 2em of air reads as a page break between them.
@@ -979,7 +1078,48 @@ Template(
                 .center()
                 .print(),
 
-            getButton("continue").wait(),
+            // The gate's halves, as functions rather than inline: the test
+            // reads the slider and `warned` and changes nothing; the failure
+            // branch is the only thing that sets `warned`. See `warned` above.
+            //
+            // Neither of the last two may throw: a throw inside a trial stops
+            // it for good (see stageFailureNotice), and these run on the click
+            // of a participant who is doing nothing wrong. Hence the try/catch
+            // around what touches the page -- the worst a failure here can do
+            // is leave the button a few pixels lower.
+            newFunction("training-answer-ok", () =>
+                (warned && Exp2Dialogue.now() - warnedAt >= TRAINING_WARNING_MIN_MS) ||
+                trainingAnswerOnRightSide(row.label)),
+            newFunction("training-note-button", () => {
+                try { buttonTop = trainingButtonTop(); } catch (e) { buttonTop = null; }
+            }),
+            newFunction("training-mark-warned", () => {
+                // The first refusal only: a click inside TRAINING_WARNING_MIN_MS
+                // is refused again and must not restart the wait.
+                if (!warned) { warned = true; warnedAt = Exp2Dialogue.now(); }
+                // Put the button back where the pointer is. Where the page
+                // cannot scroll that far (it fits the window with room to
+                // spare), what remains is a button a few pixels lower and a
+                // click that lands on the message, which does nothing. No
+                // `behavior`: nothing here sets smooth scrolling, and the
+                // two-argument form is the one every engine takes.
+                try {
+                    const now = trainingButtonTop();
+                    if (buttonTop !== null && now !== null && now !== buttonTop) {
+                        window.scrollBy(0, now - buttonTop);
+                    }
+                } catch (e) { /* see above */ }
+                buttonTop = null;
+            }),
+
+            getButton("continue").wait(
+                getFunction("training-answer-ok").test.is(true)
+                    .failure(
+                        getFunction("training-note-button").call(),
+                        getText("training-warning").text(TRAINING_WARNING),
+                        getFunction("training-mark-warned").call()
+                    )
+            ),
 
             // Read the response out, exactly as the judgment trial does. These
             // must be `getVar(...).set()` commands in the trial's sequence, not
@@ -1019,6 +1159,7 @@ Template(
             getVar("blurCountVar").set(() => (focusWatch ? focusWatch.count() : "NA")),
             getVar("blurredVar").set(() => (focusWatch ? focusWatch.blurredMs() : "NA")),
             getVar("trialIndexVar").set(() => trainingIndex),
+            getVar("trainingWarnedVar").set(() => (warned ? 1 : 0)),
 
             newFunction("training-teardown", () => {
                 const d = window.__exp2CurrentDialogue;
@@ -1048,6 +1189,11 @@ Template(
             .log("continuations", CONTINUATIONS)
             .log("trial_index", getVar("trialIndexVar"))
             .log("training_item", `${row.num}-${row.topic}-${row.label}`)
+            // 1 if this item's first "Avanti" found the slider on the wrong side
+            // of the scale (or on its midpoint) and TRAINING_WARNING was shown,
+            // 0 if not. The rating below is the one finally submitted, which
+            // after a warning may or may not have been corrected.
+            .log("training_warned", getVar("trainingWarnedVar"))
             .log("num", row.num)
             .log("item_context", row.context)
             .log("item_reward_condition", row.request)
@@ -1167,6 +1313,7 @@ newVar("blurCountVar").global();
 newVar("blurredVar").global();
 newVar("stallsVar").global();
 newVar("trialIndexVar").global();
+newVar("trainingWarnedVar").global();
 
 // Every response column, cleared at the start of the trial that will log it.
 //
@@ -1248,7 +1395,8 @@ function clearResponseVars() { return [
     getVar("blurCountVar").set("NA"),
     getVar("blurredVar").set("NA"),
     getVar("stallsVar").set("NA"),
-    getVar("trialIndexVar").set("NA")
+    getVar("trialIndexVar").set("NA"),
+    getVar("trainingWarnedVar").set("NA")
 ]; }
 
 // Presentation order, logged rather than derived.
@@ -1595,8 +1743,7 @@ Template(
             .log("age", getVar("age"))
             .log("gender", getVar("gender"))
             .log("handed", getVar("handed"))
-            .log("caff", getVar("caff"))
-            .log("study", getVar("study"));
+            .log("caff", getVar("caff"));
     }
 );
 
