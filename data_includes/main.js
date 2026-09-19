@@ -742,10 +742,10 @@ newTrial("instructions1",
         // it said nothing about intonation, which is half of what the pretest
         // asks about. The devils now have fixed roles -- red asks, blue answers
         // -- and the request says what would make the red one happy.
-        "In questo esperimento, sentirai due spiritelli parlare di quello che fanno i bambini. " +
+        "In questo contesto, due spiritelli parlano di quello che fanno i bambini. " +
         "Lo spiritello rosso (a sinistra) fa delle domande sulla base di quello che lo renderebbe contento, " +
         "e lo spiritello blu (a destra) prova a dare delle risposte. " +
-        "Tuttavia, lo spiritello blu non è molto bravo a parlare, e le risposte che si dà sono talvolta incoerenti, " +
+        "Tuttavia, lo spiritello blu non è molto bravo a parlare, e le risposte che dà sono talvolta incoerenti, " +
         "non rispondono veramente alla domanda fatta, oppure sono pronunciate con un'intonazione che ha poco senso. " +
         "<b>Il tuo compito sarà quello di penalizzare le risposte che non ti suonano accettabili rispetto alla domanda.</b> " +
         "Per farlo, userai un cursore che potrai muovere liberamente tra \"per nulla accettabile\" (estremo sinistro) e \"totalmente accettabile\" (estremo destro)."
@@ -944,8 +944,8 @@ Template(
             }).call(),
             // Order on screen: counter, intro, context, request, dialogue —
             // and then, only once the recording has played through, the
-            // prompt, the comment on the item, the slider, the (empty) warning
-            // and the button.
+            // comment on the item (the amber box), the prompt, the slider, the
+            // (empty) warning and the button.
             //
             // That reveal is not wired here. Everything printed AFTER the stage
             // element is hidden by the stylesheet until the stage carries
@@ -1012,14 +1012,12 @@ Template(
               }
             }).call(),
 
-            // Printed after the stage, so both are revealed with the slider.
-            newText("prompt", "Quanto è accettabile la risposta alla domanda?")
-                .css("margin-bottom", "2em")
-                .center()
-                .print(),
-
-            // Above the slider, not below it: it ends by saying which way to
-            // move the cursor, which is no use underneath the cursor.
+            // The box and the prompt are both printed after the stage, so both
+            // are revealed with the slider. The box comes first, above the
+            // prompt (Andrea's call, 2026-09-19): the instruction is read, then
+            // the question, then the slider. Above the slider in any case: it
+            // ends by saying which way to move the cursor, which is no use
+            // underneath the cursor.
             //
             // This is the sentence the whole training trial exists to deliver,
             // so it is a box that cannot be read past: amber, heavy-bordered,
@@ -1031,6 +1029,11 @@ Template(
             newText("training-feedback",
                 '<span class="exp2-callout-title">Come valutare questa risposta</span>' +
                 row.feedback)
+                .print(),
+
+            newText("prompt", "Quanto è accettabile la risposta alla domanda?")
+                .css("margin-bottom", "2em")
+                .center()
                 .print(),
 
             newScale("rating", 101)
