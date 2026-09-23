@@ -741,9 +741,11 @@ newTrial("instructions1",
         // child would be rewarded for; it confused more than it explained, and
         // it said nothing about intonation, which is half of what the pretest
         // asks about. The devils now have fixed roles -- red asks, blue answers
-        // -- and the request says what would make the red one happy.
+        // -- and the request says what would make the red one happy. This screen
+        // said so too ("sulla base di quello che lo renderebbe contento") until
+        // 2026-09-23; the items' request sentences carry it on their own.
         "In questo contesto, due spiritelli parlano di quello che fanno i bambini. " +
-        "Lo spiritello rosso (a sinistra) fa delle domande sulla base di quello che lo renderebbe contento, " +
+        "Lo spiritello rosso (a sinistra) fa delle domande, " +
         "e lo spiritello blu (a destra) prova a dare delle risposte. " +
         "Tuttavia, lo spiritello blu non è molto bravo a parlare, e le risposte che dà sono talvolta incoerenti, " +
         "non rispondono veramente alla domanda fatta, oppure sono pronunciate con un'intonazione che ha poco senso. " +
@@ -1020,8 +1022,8 @@ Template(
             // underneath the cursor.
             //
             // This is the sentence the whole training trial exists to deliver,
-            // so it is a box that cannot be read past: amber, heavy-bordered,
-            // under a heading of its own. All of its look is in
+            // so it is a box that cannot be read past: amber, bordered, glowing
+            // as it appears, under a heading of its own. All of its look is in
             // global_exp2.css (`.PennController-training-feedback`) and none of
             // it here, because a .css() here is an inline style and would beat
             // the stylesheet. TRAINING_WARNING sends the participant back to

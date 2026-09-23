@@ -9,7 +9,7 @@ window.EXP2_TRAINING_FRAME = {
     "Alcune risposte ti sembreranno chiaramente accettabili o inaccettabili, ma per altre potresti voler dare una valutazione intermedia. Usa pure tutto l'intervallo del cursore, non solo i due estremi."
   ],
   "opening": [
-    "Prima di cominciare l'esperimento vero e proprio, ti verranno mostrati <b>6 dialoghi di prova</b>. Servono per fare un po' di pratica. Le risposte che darai in questa fase non contano ai fini dell'esperimento.",
+    "Prima di cominciare l'esperimento vero e proprio, ti verranno mostrati <b>6 dialoghi di prova</b>. Servono per fare un po' di pratica.",
     "Dopo aver ascoltato ogni dialogo di prova, un riquadro ti spiegherà come valutare la risposta. Leggilo con attenzione prima di usare il cursore.",
     "Puoi ascoltare ogni dialogo al massimo due volte."
   ]

@@ -29,13 +29,15 @@
   --exp2-blue: #3d6088;
   --exp2-blue-line: #b9c5d6;
   --exp2-focus: #b8842f;
-  /* The training block's own colour: the "Dialogo di prova" counter and the
-   * box that says how to judge each practice item. Amber, off the same hue as
-   * --exp2-focus, so it reads as part of this palette rather than as an alert
-   * (red is taken: it means "that answer will not do"). The ink is 6:1 on the
-   * ground. */
-  --exp2-amber-bg: #fbf0d6;
+  /* The training block's own colour: the box that says how to judge each
+   * practice item, and the small marks either side of the "Dialogo di prova"
+   * counter. Amber, off the same hue as --exp2-focus, so it reads as part of
+   * this palette rather than as an alert (red is taken: it means "that answer
+   * will not do"). The ground is the paper of the dialogue card warmed a
+   * little; the ink is 6:1 on it. */
+  --exp2-amber-bg: #fcf3df;
   --exp2-amber-ink: #7a5212;
+  --exp2-amber-line: rgba(184, 132, 47, 0.35);
   --exp2-radius: 18px;
   --exp2-radius-sm: 12px;
   /* Everything outside the experiment's own column. Deliberately nothing like
@@ -580,30 +582,41 @@ html .PennController-Text-container.PennController-training-warning-container {
 /* ------------------------------------------------------------------------
  * The training block: the counter and the instructions box.
  *
- * Both amber (see --exp2-amber-bg), which nothing outside the training block
- * uses -- so the colour itself says "this is practice", and its absence from
- * the judgment trials says the practice is over.
+ * Redrawn on 2026-09-23 in the vocabulary of the rest of the page. The counter
+ * is background information, so it is a quiet label like "Avanzamento" above
+ * it. The box is the one thing on a practice trial that must not be missed, so
+ * it keeps the amber and gets the dialogue card's shape and shadow, plus a
+ * heading with a mark of its own and a glow as it appears.
  *
  * Both are Text elements, so PennController prints each as a <span> carrying
  * an inline `display: inline-block`, which only an !important beats. See the
  * age message above for the day that was learned.
  * ---------------------------------------------------------------------- */
 
-/* "Dialogo di prova 3/6", at the top of every training trial. Printed empty
- * and filled a moment later by main.js, so `:empty` keeps a bare pill from
- * flashing up first. */
+/* "Dialogo di prova 3/6", at the top of every training trial, set between two
+ * short amber rules like a section mark. Printed empty and filled a moment
+ * later by main.js, so `:empty` keeps two bare rules from flashing up first.
+ * The rules are pseudo-elements, so the element's text stays exactly what
+ * main.js wrote (check_training_gate.mjs compares it). */
 html .PennController-training-counter {
   display: inline-block;
-  margin: 0 0 0.35rem;
-  padding: 0.3em 1em;
-  border: 1.5px solid var(--exp2-focus);
-  border-radius: 999px;
-  background: var(--exp2-amber-bg);
-  color: var(--exp2-amber-ink);
-  font-size: 0.9rem;
-  font-weight: 700;
+  margin: 0 0 0.9rem;
+  color: var(--exp2-ink-soft);
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
   line-height: 1.4;
+}
+html .PennController-training-counter::before,
+html .PennController-training-counter::after {
+  content: "";
+  display: inline-block;
+  width: 1.75rem;
+  height: 1px;
+  margin: 0 0.8em;
+  background: var(--exp2-amber-line);
+  vertical-align: middle;
 }
 html .PennController-training-counter:empty {
   display: none !important;
@@ -611,35 +624,70 @@ html .PennController-training-counter:empty {
 
 /* How to judge the item just heard -- the one sentence the practice trial is
  * for, shown with the slider once the recording has played. Built to be
- * impossible to read past: full column width, a heavy amber rule on the left,
- * an amber ground, and a heading of its own that TRAINING_WARNING can send the
- * participant back to. Left-aligned, because it is several lines of prose.
+ * impossible to read past: the dialogue card's radius and shadow, but on an
+ * amber ground inside an amber rule, under a heading with a filled amber mark
+ * that TRAINING_WARNING can send the participant back to. It glows twice as it
+ * is revealed -- the reveal is a change of `display`, which restarts the
+ * animation on every practice item. Left-aligned, because it is several lines
+ * of prose.
  *
  * No `.css()` on this element in main.js (check_contracts.mjs holds that): an
  * inline style would beat every line here. */
 html .PennController-training-feedback {
   display: block !important;
   margin: 0 0 1.75rem;
-  padding: 0.95em 1.15em 1em 1.25em;
+  padding: 1em 1.35em 1.1em;
   border: 2px solid var(--exp2-focus);
-  border-left-width: 8px;
-  border-radius: var(--exp2-radius-sm);
+  border-radius: var(--exp2-radius);
   background: var(--exp2-amber-bg);
-  box-shadow: 0 10px 24px -16px rgba(122, 82, 18, 0.6);
+  box-shadow: var(--exp2-shadow);
   color: var(--exp2-ink);
   font-size: 1.05rem;
   font-weight: 500;
   line-height: 1.55;
   text-align: left;
+  animation: exp2-callout-glow 1.1s ease-out 2;
 }
 html .PennController-training-feedback .exp2-callout-title {
-  display: block;
-  margin-bottom: 0.4em;
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  margin: 0 0 0.6em;
+  padding-bottom: 0.55em;
+  border-bottom: 1px solid var(--exp2-amber-line);
   color: var(--exp2-amber-ink);
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+/* The mark: an "i" in a filled amber disc. Content, not text, so the title's
+ * textContent stays the heading's words. */
+html .PennController-training-feedback .exp2-callout-title::before {
+  content: "i";
+  flex: none;
+  width: 1.6em;
+  height: 1.6em;
+  border-radius: 50%;
+  background: var(--exp2-focus);
+  color: var(--exp2-paper);
+  font-family: var(--exp2-font-serif);
+  font-size: 1.05rem;
+  font-style: italic;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.6em;
+  text-align: center;
+  text-transform: none;
+}
+@keyframes exp2-callout-glow {
+  0% { box-shadow: var(--exp2-shadow), 0 0 0 0 rgba(184, 132, 47, 0.45); }
+  100% { box-shadow: var(--exp2-shadow), 0 0 0 12px rgba(184, 132, 47, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  html .PennController-training-feedback {
+    animation: none;
+  }
 }
 
 /* ------------------------------------------------------------------------
