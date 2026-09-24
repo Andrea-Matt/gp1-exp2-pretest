@@ -747,9 +747,9 @@ newTrial("instructions1",
         "In questo contesto, due spiritelli parlano di quello che fanno i bambini. " +
         "Lo spiritello rosso (a sinistra) fa delle domande, " +
         "e lo spiritello blu (a destra) prova a dare delle risposte. " +
-        "Tuttavia, lo spiritello blu non è molto bravo a parlare, e le risposte che dà sono talvolta incoerenti, " +
-        "non rispondono veramente alla domanda fatta, oppure sono pronunciate con un'intonazione che ha poco senso. " +
-        "<b>Il tuo compito sarà quello di penalizzare le risposte che non ti suonano accettabili rispetto alla domanda.</b> " +
+        "Tuttavia, lo spiritello blu non è molto bravo a parlare, e le risposte che dà <b>sono talvolta incoerenti, " +
+        "non rispondono veramente alla domanda fatta, oppure sono pronunciate con un'intonazione che ha poco senso.</b> " +
+        "Il tuo compito sarà quello di <b>penalizzare le risposte che non ti suonano accettabili rispetto alla domanda.</b> " +
         "Per farlo, userai un cursore che potrai muovere liberamente tra \"per nulla accettabile\" (estremo sinistro) e \"totalmente accettabile\" (estremo destro)."
     ),
 
